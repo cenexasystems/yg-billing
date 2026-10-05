@@ -122,5 +122,8 @@ We have successfully received your initial advance payment!
 
 Your order is being prepared with utmost care. We will have everything ready on or before ${deliveryDateFormatted}!
 
+🌐 *Visit Our Official Website:*
+👉 ${BRAND_WEBSITE}
+
 📞 *Shop Contact:* ${profile.phone}${instagramSection}`
 }

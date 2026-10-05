@@ -81,8 +81,7 @@ export const BRAND_LOCATION_LINK = '#'
 
 // Instagram URLs shown on invoices, receipts and WhatsApp messages — same handles for both branches
 export function getInstagramUrls(_branch?: string): string {
-  return `https://www.instagram.com/yg_enterprises001/
-https://www.instagram.com/ygenterprises7755/`
+  return 'https://www.instagram.com/yg_enterprises001/'
 }
 
 export const BRAND_INSTAGRAM = '' // Deprecated: use getInstagramUrls(branch)
