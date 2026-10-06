@@ -170,7 +170,7 @@ export default function Pos(props: PosProps = {}) {
   const [couponError, setCouponError] = useState('')
   const [availableCoupons, setAvailableCoupons] = useState<{code: string}[]>([])
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; percentage: number; minOrderValue: number; discount?: number } | null>(null)
-  const [manualDiscountType, setManualDiscountType] = useState<'flat' | 'percent'>('flat')
+  const [manualDiscountType, setManualDiscountType] = useState<'flat' | 'percent'>('percent')
   const [manualDiscountValue, setManualDiscountValue] = useState('')
   const [error, setError] = useState('')
   const [invoice, setInvoice] = useState<InvoiceSnap | null>(null)
@@ -674,7 +674,7 @@ export default function Pos(props: PosProps = {}) {
     setAppliedCoupon(null)
     setCouponError('')
     setManualDiscountValue('')
-    setManualDiscountType('flat')
+    setManualDiscountType('percent')
     setError('')
     setShipping('0')
     setRemarks('')
@@ -1683,19 +1683,11 @@ export default function Pos(props: PosProps = {}) {
               <div>
                 <label className="block text-[10px] font-black text-[#374151] tracking-wider uppercase mb-1">Manual Discount</label>
                 <div className="flex gap-2">
-                  <div className="relative shrink-0">
-                    <select
-                      value={manualDiscountType}
-                      onChange={e => setManualDiscountType(e.target.value as 'flat'|'percent')}
-                      className="appearance-none h-9 bg-white border border-gray-200 rounded-xl pl-2 pr-7 text-[12px] font-black text-[#111111] focus:outline-none focus:border-[#D4AF37]"
-                    >
-                      <option value="flat">₹</option>
-                      <option value="percent">%</option>
-                    </select>
-                    <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#374151] pointer-events-none" />
-                  </div>
+                  <span className="shrink-0 inline-flex items-center justify-center h-9 min-w-9 px-3 bg-white border border-gray-200 rounded-xl text-[12px] font-black text-[#111111]">%</span>
                   <input
                     type="number" onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                    min={0}
+                    max={100}
                     value={manualDiscountValue}
                     onChange={e => setManualDiscountValue(e.target.value)}
                     placeholder="0"
