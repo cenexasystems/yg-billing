@@ -151,7 +151,9 @@ export const BarcodeScannerInput: React.FC<BarcodeScannerInputProps> = ({
 
       const effectiveStock = varnt ? (Number(varnt.stock) || 0) : 999
 
-      const price = varnt?.price ? Number(varnt.price) : Number(prod.price)
+      // A variant barcode bills at that variant's own price. The parent product's
+      // offer price is the first variant's price, so it must not apply here.
+      const price = varnt ? Number(varnt.price ?? prod.price) : Number(prod.price)
 
       const payload: ScannedItemPayload = {
         product_id: record.product_id,
@@ -160,7 +162,7 @@ export const BarcodeScannerInput: React.FC<BarcodeScannerInputProps> = ({
         name_ta: prod.name_ta,
         variant_name: varnt?.variant_name,
         price: price,
-        offer_price: prod.offer_price ? Number(prod.offer_price) : undefined,
+        offer_price: !varnt && prod.offer_price ? Number(prod.offer_price) : undefined,
         stock: effectiveStock,
         barcode: clean,
         image_url: prod.image_url,

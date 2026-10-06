@@ -1030,6 +1030,7 @@ export default function Dashboard() {
       subtotal,
       shipping: order.delivery_charge || 0,
       couponDiscount: order.discount_amount || 0,
+      manualDiscount: order.manual_discount_amount || 0,
       totalGst: order.total_gst || 0,
       total: order.total
     })

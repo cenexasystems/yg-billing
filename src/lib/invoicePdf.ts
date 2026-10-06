@@ -6,6 +6,7 @@ import { LOGO_BASE64_POS1, LOGO_BASE64_POS2 } from './logoBase64'
 import type { PosBranch } from '../store/store'
 import { getBranchProfile } from './branchProfile'
 import { formatPhoneForDisplay } from './phone'
+import { splitGst } from './gst'
 
 export type InvoicePdfData = {
   invoiceNo: string
@@ -21,6 +22,8 @@ export type InvoicePdfData = {
   discountAmount?: number
   manualDiscountAmount?: number
   gstAmount?: number
+  /** GST rate in percent, when known (otherwise worked out from the amounts) */
+  gstRate?: number | null
   couponCode?: string | null
   paymentMode?: string
 }
@@ -78,6 +81,7 @@ export function createInvoicePdf(data: InvoicePdfData): Blob {
   doc.text(`Date: ${new Date(data.date).toLocaleDateString('en-IN')}`, right - 2, y + 2, { align: 'right' })
   const paymentText = `Payment: ${data.paymentMode || 'POS'}`.replace(/[₹\u20b9]/g, 'Rs. ')
   doc.text(paymentText, right - 2, y + 8, { align: 'right', maxWidth: 100 })
+  if (profile.gstin) doc.text(`GSTIN: ${profile.gstin}`, right - 2, y + 14, { align: 'right' })
   y += 28
 
   const customerName = String(data.customerName || 'Walk-in Customer').trim()
@@ -155,7 +159,12 @@ export function createInvoicePdf(data: InvoicePdfData): Blob {
   const rows: Array<[string, string, string, number]> = [['Subtotal', money(data.subtotal), ink, 9]]
   if ((data.discountAmount || 0) > 0) rows.push([`Coupon${data.couponCode ? ` (${data.couponCode})` : ''}`, `-${money(data.discountAmount || 0)}`, '#D4AF37', 11])
   if ((data.manualDiscountAmount || 0) > 0) rows.push(['Discount', `-${money(data.manualDiscountAmount || 0)}`, '#D4AF37', 9])
-  if ((data.gstAmount || 0) > 0) rows.push(['GST', money(data.gstAmount || 0), ink, 7])
+  if ((data.gstAmount || 0) > 0) {
+    const gst = splitGst(data.gstAmount || 0, data.subtotal - (data.discountAmount || 0) - (data.manualDiscountAmount || 0), data.gstRate)
+    const at = gst.halfRateLabel ? ` @ ${gst.halfRateLabel}` : ''
+    rows.push([`CGST${at}`, money(gst.cgst), ink, 8])
+    rows.push([`SGST${at}`, money(gst.sgst), ink, 8])
+  }
   rows.push(['Delivery', (data.shipping || 0) > 0 ? money(data.shipping) : 'FREE', ink, 9])
   rows.forEach(([label, value, color, fontSize]) => {
     doc.setFont('helvetica', 'normal')

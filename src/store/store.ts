@@ -160,6 +160,8 @@ export interface StoreSettings {
   themeColor: string
   websiteUrl?: string
   gstEnabled: boolean
+  /** GST registration number printed on invoices and receipts */
+  gstin: string
 }
 
 interface SettingsState {
@@ -630,7 +632,8 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
           instagramId: data.instagram_id || '',
           logoUrl: data.logo_url || null,
           themeColor: data.theme_color || (queryBranch === 'pos2' ? '#B8860B' : '#8B1A1A'),
-          gstEnabled: data.gst_enabled
+          gstEnabled: data.gst_enabled,
+          gstin: String(data.gstin || '').trim(),
         }
         set((state) => ({
           settings: resolved,
@@ -651,7 +654,8 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
       instagramId: '',
       logoUrl: null,
       themeColor: branch === 'pos2' ? '#B8860B' : '#8B1A1A',
-      gstEnabled: false
+      gstEnabled: false,
+      gstin: '',
     }
     set((state) => ({
       settings: fallback,

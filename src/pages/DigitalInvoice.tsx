@@ -271,7 +271,7 @@ export default function DigitalInvoice() {
         total: invoice.total || 0,
         discountAmount: invoice.discount_amount,
         manualDiscountAmount: invoice.manual_discount_amount,
-        gstAmount: invoice.gst_amount,
+        gstAmount: invoice.total_gst || invoice.gst_amount || 0,
         couponCode: invoice.coupon_code,
         paymentMode: invoice.payment_mode,
       })
@@ -388,7 +388,7 @@ export default function DigitalInvoice() {
             total: invoice.total || 0,
             discountAmount: invoice.discount_amount,
             manualDiscountAmount: invoice.manual_discount_amount,
-            gstAmount: invoice.gst_amount,
+            gstAmount: invoice.total_gst || invoice.gst_amount || 0,
             couponCode: invoice.coupon_code,
             paymentMode: invoice.payment_mode,
           })
@@ -399,7 +399,6 @@ export default function DigitalInvoice() {
   }
 
   const printReceipt = () => {
-    const subtotal = invoice.total - (invoice.delivery_charge || 0) + (invoice.discount_amount || 0)
     printThermalReceipt({
       invoiceNo: invoice.invoice_no,
       date: invoice.created_at,
@@ -416,6 +415,7 @@ export default function DigitalInvoice() {
       subtotal,
       shipping: invoice.delivery_charge || 0,
       couponDiscount: invoice.discount_amount || 0,
+      manualDiscount: invoice.manual_discount_amount || 0,
       totalGst: invoice.total_gst || invoice.gst_amount || 0,
       total: invoice.total > 0 ? invoice.total : (subtotal + (invoice.delivery_charge || 0) + (invoice.total_gst || invoice.gst_amount || 0) - (invoice.discount_amount || 0) - (invoice.manual_discount_amount || 0)),
       paymentMode: invoice.payment_mode || invoice.payment_method,

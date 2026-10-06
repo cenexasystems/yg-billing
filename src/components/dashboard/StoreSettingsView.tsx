@@ -26,13 +26,14 @@ type FormState = {
   email: string
   address: string
   instagramId: string
+  gstin: string
   themeColor: string
   logoUrl: string
 }
 
 const emptyForm: FormState = {
   name: '', ownerName: '', businessType: '', phoneNumber: '', shopContactNumber: '',
-  email: '', address: '', instagramId: '', themeColor: '#8B1A1A', logoUrl: '',
+  email: '', address: '', instagramId: '', gstin: '', themeColor: '#8B1A1A', logoUrl: '',
 }
 
 export default function StoreSettingsView() {
@@ -82,6 +83,7 @@ export default function StoreSettingsView() {
       email: currentBranchSettings.email,
       address: currentBranchSettings.address,
       instagramId: currentBranchSettings.instagramId,
+      gstin: currentBranchSettings.gstin || '',
       themeColor: currentBranchSettings.themeColor || (target === 'pos2' ? '#B8860B' : '#8B1A1A'),
       logoUrl: currentBranchSettings.logoUrl || '',
     })
@@ -99,7 +101,7 @@ export default function StoreSettingsView() {
     setForm({
       name: currentBranchSettings.name, ownerName: currentBranchSettings.ownerName, businessType: currentBranchSettings.businessType,
       phoneNumber, shopContactNumber: shopContactNumber || phoneNumber, email: currentBranchSettings.email,
-      address: currentBranchSettings.address, instagramId: currentBranchSettings.instagramId, themeColor: currentBranchSettings.themeColor,
+      address: currentBranchSettings.address, instagramId: currentBranchSettings.instagramId, gstin: currentBranchSettings.gstin || '', themeColor: currentBranchSettings.themeColor,
       logoUrl: currentBranchSettings.logoUrl || '',
     })
     setMessage(null)
@@ -130,6 +132,7 @@ export default function StoreSettingsView() {
         email: form.email.trim(),
         address: form.address.trim(),
         instagram_id: form.instagramId.trim(),
+        gstin: form.gstin.trim().toUpperCase(),
         theme_color: normalizeHex(form.themeColor),
         logo_url: form.logoUrl || null,
         updated_at: new Date().toISOString(),
@@ -393,6 +396,11 @@ export default function StoreSettingsView() {
                   <label className="block text-[10px] font-black uppercase tracking-wide text-gray-500 mb-1">Instagram ID</label>
                   <input value={form.instagramId} onChange={(e) => setForm((f) => ({ ...f, instagramId: e.target.value }))} placeholder="@yourhandle" className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-[#FBFAF6] text-sm font-bold outline-none focus:border-gray-400" />
                 </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wide text-gray-500 mb-1">GST Number (GSTIN)</label>
+                <input value={form.gstin} onChange={(e) => setForm((f) => ({ ...f, gstin: e.target.value.toUpperCase() }))} placeholder="e.g. 33AJEPG5088P1ZS" maxLength={15} className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-[#FBFAF6] text-sm font-bold uppercase tracking-wide outline-none focus:border-gray-400" />
+                <p className="mt-1 text-[10px] font-semibold text-gray-500">Printed on this POS's invoices and receipts. Leave empty to hide it.</p>
               </div>
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-wide text-gray-500 mb-1">Shop Address</label>

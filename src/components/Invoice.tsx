@@ -4,6 +4,7 @@ import { formatPhoneForDisplay } from '../lib/phone'
 import { formatCurrency, formatQuantityValue, normalizeStructuredOrderItem, formatInvoiceNo } from '../lib/retail'
 import type { PosBranch } from '../store/store'
 import { getBranchProfile } from '../lib/branchProfile'
+import { splitGst } from '../lib/gst'
 
 export interface InvoiceItem {
   id: string | number
@@ -34,6 +35,8 @@ export interface InvoiceProps {
   discountAmount?: number
   manualDiscountAmount?: number
   gstAmount?: number
+  /** GST rate in percent, when known (otherwise worked out from the amounts) */
+  gstRate?: number | null
   couponCode?: string
   total: number
   status?: string
@@ -56,6 +59,7 @@ export const Invoice: React.FC<InvoiceProps> = ({
   discountAmount = 0,
   manualDiscountAmount = 0,
   gstAmount = 0,
+  gstRate,
   couponCode,
   total,
   status = 'completed',
@@ -72,7 +76,8 @@ export const Invoice: React.FC<InvoiceProps> = ({
   const statusColor = status === 'completed' ? '#D4AF37' : status === 'cancelled' ? '#dc2626' : '#d97706'
   const effectiveDelivery = deliveryCharge || shipping
   const profile = getBranchProfile(branch)
-  const instagramUrls = profile.instagramUrls
+  const gst = splitGst(gstAmount, subtotal - discountAmount - manualDiscountAmount, gstRate)
+  const gstAt = gst.halfRateLabel ? ` @ ${gst.halfRateLabel}` : ''
 
   return (
     <div
@@ -96,8 +101,12 @@ export const Invoice: React.FC<InvoiceProps> = ({
         <div style={{ fontSize: 11, color: '#4b5563', marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
           <span>📞 {profile.phone}</span>
           <span>✉️ {profile.email}</span>
-          {instagramUrls && <span>📷 Instagram</span>}
         </div>
+        {profile.gstin && (
+          <div style={{ fontSize: 11, color: '#111111', marginTop: 6, fontWeight: 800, letterSpacing: 0.5 }}>
+            GSTIN: {profile.gstin}
+          </div>
+        )}
       </div>
 
       {/* ── META ROW (Properly partitioned bill details) ─────────── */}
@@ -208,10 +217,16 @@ export const Invoice: React.FC<InvoiceProps> = ({
               </div>
             )}
             {gstAmount > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                <span style={{ fontSize: 10, color: '#666' }}>GST</span>
-                <span style={{ fontSize: 10, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>+{formatCurrency(gstAmount)}</span>
-              </div>
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: 10, color: '#666' }}>CGST{gstAt}</span>
+                  <span style={{ fontSize: 10, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>+{formatCurrency(gst.cgst)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: 10, color: '#666' }}>SGST{gstAt}</span>
+                  <span style={{ fontSize: 10, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>+{formatCurrency(gst.sgst)}</span>
+                </div>
+              </>
             )}
             {effectiveDelivery > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -249,11 +264,6 @@ export const Invoice: React.FC<InvoiceProps> = ({
         <div style={{ fontSize: 12, fontWeight: 800, color: '#7A1220', letterSpacing: 0.5 }}>
           Thank you for shopping at YG ENTERPRISES!
         </div>
-        {instagramUrls && (
-          <div style={{ fontSize: 10, color: '#666', marginTop: 3, fontWeight: 500, whiteSpace: 'pre-line' }}>
-            Follow us on Instagram:{'\n'}{instagramUrls}
-          </div>
-        )}
       </div>
     </div>
   )

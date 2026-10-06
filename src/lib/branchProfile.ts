@@ -18,6 +18,8 @@ export interface BranchProfile {
   logo: string
   /** One Instagram URL per line */
   instagramUrls: string
+  /** GST registration number, '' when not set */
+  gstin: string
 }
 
 const toBranch = (branch?: string | null): PosBranch => (branch === 'pos2' ? 'pos2' : 'pos1')
@@ -46,5 +48,6 @@ export function getBranchProfile(branch?: string | null): BranchProfile {
     email: cleanIdentityField(s?.email) || BRAND_EMAIL,
     logo: s?.logoUrl || (b === 'pos2' ? BRAND_LOGO_POS2 : BRAND_LOGO_POS1),
     instagramUrls: instagramUrlsFromIds(s?.instagramId) || getInstagramUrls(b),
+    gstin: (s?.gstin || '').trim().toUpperCase(),
   }
 }

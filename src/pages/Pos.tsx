@@ -26,6 +26,7 @@ import { isCouponExpired } from '../services/couponService'
 import { createAdvanceOrder, type AdvanceOrder, type AdvancePaymentMethod } from '../services/advanceOrderService'
 import { printAdvanceReceipt } from '../lib/advanceReceipt'
 import { printThermalReceipt } from '../lib/thermalPrint'
+import { splitGst } from '../lib/gst'
 import {
   buildStructuredOrderItem,
   calculateLineTotal,
@@ -68,6 +69,7 @@ type InvoiceSnap = {
   manualDiscountType: 'flat' | 'percent'
   manualDiscountValue: number
   gstAmount: number
+  gstRate: number | null
   total: number
   customerName: string
   phone: string
@@ -272,6 +274,8 @@ export default function Pos(props: PosProps = {}) {
       ? Math.max(0, Math.round((discountedSubtotal * (Math.max(0, Number(gstInput) || 0) / 100)) * 100) / 100)
       : Math.max(0, Number(gstInput) || 0))
     : 0
+  const gstRate = billGstEnabled && gstType === 'percent' ? Math.max(0, Number(gstInput) || 0) : null
+  const gstSplit = splitGst(totalGst, discountedSubtotal, gstRate)
   const total = Math.max(0, discountedSubtotal + (Number(shipping || 0) || 0) + totalGst)
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -449,7 +453,9 @@ export default function Pos(props: PosProps = {}) {
       const prod = record.product
       const varnt = record.variant
       const effectiveStock = varnt ? (Number(varnt.stock) || 0) : 999
-      const price = varnt?.price ? Number(varnt.price) : Number(prod.price)
+      // A variant barcode bills at that variant's own price. The parent product's
+      // offer price is the first variant's price, so it must not apply here.
+      const price = varnt ? Number(varnt.price ?? prod.price) : Number(prod.price)
 
       const payload: ScannedItemPayload = {
         product_id: record.product_id,
@@ -458,7 +464,7 @@ export default function Pos(props: PosProps = {}) {
         name_ta: prod.name_ta,
         variant_name: varnt?.variant_name,
         price: price,
-        offer_price: prod.offer_price ? Number(prod.offer_price) : undefined,
+        offer_price: !varnt && prod.offer_price ? Number(prod.offer_price) : undefined,
         stock: effectiveStock,
         barcode: clean,
         image_url: prod.image_url,
@@ -929,6 +935,7 @@ export default function Pos(props: PosProps = {}) {
         manualDiscountType,
         manualDiscountValue: manualDiscountNumeric,
         gstAmount: totalGst,
+        gstRate,
         total,
         customerName: customer.name.trim() || 'Walk-in Customer',
         phone: normalizedPhone,
@@ -1000,6 +1007,7 @@ export default function Pos(props: PosProps = {}) {
         discountAmount: inv.couponDiscount,
         manualDiscountAmount: inv.manualDiscountAmount,
         gstAmount: inv.gstAmount,
+        gstRate: inv.gstRate,
         couponCode: inv.couponCode,
         paymentMode: inv.paymentMode,
         total: inv.total,
@@ -1027,6 +1035,7 @@ export default function Pos(props: PosProps = {}) {
       couponDiscount: inv.couponDiscount,
       manualDiscount: inv.manualDiscountAmount,
       totalGst: inv.gstAmount,
+      gstRate: inv.gstRate,
       total: inv.total,
       paymentMode: inv.paymentMode,
     })
@@ -1168,6 +1177,7 @@ export default function Pos(props: PosProps = {}) {
             discountAmount={invoice.couponDiscount || 0}
             manualDiscountAmount={invoice.manualDiscountAmount || 0}
             gstAmount={invoice.gstAmount || 0}
+            gstRate={invoice.gstRate}
             couponCode={invoice.couponCode}
           />
         </div>
@@ -1737,10 +1747,16 @@ export default function Pos(props: PosProps = {}) {
                 </div>
 
                 {billGstEnabled && totalGst > 0 && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-black text-[#374151]">GST Amount</span>
-                    <span className="text-[12px] font-black text-[#111111]">{formatCurrency(totalGst)}</span>
-                  </div>
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-black text-[#374151]">CGST{gstSplit.halfRateLabel ? ` @ ${gstSplit.halfRateLabel}` : ''}</span>
+                      <span className="text-[12px] font-black text-[#111111]">{formatCurrency(gstSplit.cgst)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-black text-[#374151]">SGST{gstSplit.halfRateLabel ? ` @ ${gstSplit.halfRateLabel}` : ''}</span>
+                      <span className="text-[12px] font-black text-[#111111]">{formatCurrency(gstSplit.sgst)}</span>
+                    </div>
+                  </>
                 )}
 
                 <div className="flex items-center justify-between">
