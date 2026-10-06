@@ -294,6 +294,20 @@ export const AddEditProductView: React.FC<{
       return
     }
 
+    if (hasVariants) {
+      const seen = new Map<string, string>()
+      for (const v of validVariants) {
+        const code = normalizeBarcode(v.customBarcode)
+        if (!code) continue
+        const other = seen.get(code)
+        if (other) {
+          setStatusMessage({ type: 'error', text: `Variants "${other}" and "${v.variantName.trim()}" have the same barcode ${code}. Each variant needs its own barcode.` })
+          return
+        }
+        seen.set(code, v.variantName.trim())
+      }
+    }
+
     const selectedCat = categories.find((c) => Number(c.id) === Number(categoryId))
     const categoryName = selectedCat ? selectedCat.name_en : 'General'
     const alertThreshold = Number(lowStockAlert) > 0 ? Number(lowStockAlert) : 5

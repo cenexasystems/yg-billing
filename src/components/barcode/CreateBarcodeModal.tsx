@@ -153,7 +153,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
           const matched = targetVariantId ? vars.find(v => v.id === targetVariantId) : vars[0]
           const chosen = matched || vars[0]
           setSelectedVariant(chosen)
-          if (chosen.barcode) setItemCode(chosen.barcode)
+          setItemCode(chosen.barcode || `${barcodePrefix}${Math.floor(1000000 + Math.random() * 9000000)}`)
           setLine2(`Size: ${chosen.variantName}`)
           if (chosen.price) {
             setLine3(settings.showDiscount ? 'Discount: 0%' : `Price: ₹${chosen.price}`)
@@ -236,7 +236,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
     const v = variants.find((item) => item.id === varId)
     if (!v) return
     setSelectedVariant(v)
-    if (v.barcode) setItemCode(v.barcode)
+    setItemCode(v.barcode || `${barcodePrefix}${Math.floor(1000000 + Math.random() * 9000000)}`)
     setLine2(`Size: ${v.variantName}`)
     if (v.price) {
       setLine3(settings.showDiscount ? 'Discount: 0%' : `Price: ₹${v.price}`)
@@ -275,6 +275,14 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
     const alreadyInQueue = queue.some(
       (it) => it.productId === selectedProduct.id && (selectedVariant ? it.variantId === selectedVariant.id : !it.variantId)
     )
+    const codeInQueue = queue.find((it) => it.barcodeValue.toUpperCase() === itemCode.trim().toUpperCase())
+    if (codeInQueue) {
+      setStatusMessage({
+        type: 'error',
+        text: `Barcode ${itemCode.trim()} is already used by ${codeInQueue.productName}${codeInQueue.variantName ? ` - ${codeInQueue.variantName}` : ''} in the queue. Assign a new code.`,
+      })
+      return
+    }
     if (alreadyInQueue) {
       setStatusMessage({
         type: 'error',
@@ -876,13 +884,22 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
                               return
                             }
 
-                            const itemsToAdd: BarcodeQueueItem[] = unassignedVariants.map((v) => ({
+                            const usedCodes = new Set(queue.map((it) => it.barcodeValue.toUpperCase()))
+                            const freshCode = () => {
+                              let code = ''
+                              do code = `${barcodePrefix}${Math.floor(1000000 + Math.random() * 9000000)}`
+                              while (usedCodes.has(code))
+                              usedCodes.add(code)
+                              return code
+                            }
+                            const queuedVariantIds = new Set(queue.map((it) => it.variantId).filter(Boolean))
+                            const itemsToAdd: BarcodeQueueItem[] = unassignedVariants.filter((v) => !queuedVariantIds.has(v.id)).map((v) => ({
                               id: `queue_${Date.now()}_${v.id}_${Math.random()}`,
                               productId: selectedProduct.id,
                               productName: selectedProduct.name,
                               variantId: v.id,
                               variantName: v.variantName,
-                              barcodeValue: `${barcodePrefix}${Math.floor(1000000 + Math.random() * 9000000)}`,
+                              barcodeValue: freshCode(),
                               price: v.price || selectedProduct.price,
                               costPrice: selectedProduct.cost_price || 0,
                               noOfLabels: parseInt(noOfLabels, 10) || 1,
