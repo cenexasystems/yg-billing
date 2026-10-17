@@ -940,8 +940,8 @@ export default function Pos(props: PosProps = {}) {
         customerName: customer.name.trim() || 'Walk-in Customer',
         phone: normalizedPhone,
         address: customer.address.trim() || 'POS Counter',
-        amountReceived: cashReceivedNum,
-        balanceReturned: balanceToReturn,
+        amountReceived: paymentType === 'cash' && ordermode !== 'online' ? cashReceivedNum : total,
+        balanceReturned: paymentType === 'cash' && ordermode !== 'online' ? balanceToReturn : 0,
         paymentMode: ordermode === 'online' ? 'Online' : paymentType === 'split' ? splitModeLabel : paymentType === 'qr' ? 'QR' : paymentType === 'card' ? 'Card' : 'Cash',
         paymentMethod: paymentMode,
       }
@@ -1868,12 +1868,12 @@ export default function Pos(props: PosProps = {}) {
                 </div>
               )}
 
-              {/* Amount Received (shown for cash/qr/card only) */}
-              {ordermode !== 'online' && paymentType !== 'split' && (
+              {/* Amount Received: cash only (QR / card are paid exactly; split has its own amounts) */}
+              {ordermode !== 'online' && paymentType === 'cash' && (
               <div>
                 <div className="border border-gray-200 rounded-xl p-2.5 bg-white">
                   <label className="block text-[10px] font-black text-[#374151] tracking-wider uppercase mb-0.5">
-                    {paymentType === 'qr' ? 'QR' : paymentType === 'card' ? 'Card' : 'Cash'} — Amount Received (₹)
+                    Cash — Amount Received (₹)
                   </label>
                   <input
                     type="number" onWheel={(e) => (e.target as HTMLInputElement).blur()}
