@@ -147,6 +147,9 @@ export default function Pos(props: PosProps = {}) {
   const navigate = useNavigate()
   const { logout, role, activeBranch, setActiveBranch } = useAdminAuthStore()
   const branch = resolveBranch(activeBranch)
+  // POS 2 (Fireworks) takes mostly card payments, so card comes first there.
+  const paymentModes = branch === 'pos2' ? (['card', 'cash', 'qr', 'split'] as const) : (['cash', 'qr', 'card', 'split'] as const)
+  const defaultPaymentType = paymentModes[0]
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [billingAdjOpen, setBillingAdjOpen] = useState(false)
 
@@ -159,7 +162,7 @@ export default function Pos(props: PosProps = {}) {
   const [remarks, setRemarks] = useState('')
   const [referenceNumber, setReferenceNumber] = useState('')
   const [billingDate, setBillingDate] = useState('') // '' = use current date/time
-  const [paymentType, setPaymentType] = useState<'cash' | 'qr' | 'card' | 'split'>('cash')
+  const [paymentType, setPaymentType] = useState<'cash' | 'qr' | 'card' | 'split'>(defaultPaymentType)
   const [splitP1Type, setSplitP1Type] = useState<'cash' | 'qr' | 'card'>('cash')
   const [splitP1Amount, setSplitP1Amount] = useState<string>('')
   const [splitP2Type, setSplitP2Type] = useState<'cash' | 'qr' | 'card'>('qr')
@@ -685,7 +688,7 @@ export default function Pos(props: PosProps = {}) {
     setGstType('percent')
     setOrdermode('offline')
     setMobilePanelView('catalogue')
-    setPaymentType('cash')
+    setPaymentType(defaultPaymentType)
     setSplitP1Type('cash')
     setSplitP1Amount('')
     setSplitP2Type('qr')
@@ -705,6 +708,8 @@ export default function Pos(props: PosProps = {}) {
     setCatalogOpen(false)
     setAddUnregisteredOpen(false)
     setPriceEditModal({ isOpen: false, item: null, newPrice: '', isSubmitting: false, error: '' })
+    // Runs only when the branch changes; clearAll is recreated every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branch])
 
   const applyCoupon = async (overrideCode?: string) => {
@@ -1774,7 +1779,7 @@ export default function Pos(props: PosProps = {}) {
               <div>
                 <label className="block text-[10px] font-black text-[#374151] tracking-wider uppercase mb-1">Payment Mode</label>
                 <div className="grid grid-cols-4 gap-1.5">
-                  {(['cash', 'qr', 'card', 'split'] as const).map(mode => (
+                  {paymentModes.map(mode => (
                     <button
                       key={mode}
                       type="button"
