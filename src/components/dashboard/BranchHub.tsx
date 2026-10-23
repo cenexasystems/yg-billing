@@ -19,7 +19,8 @@ export default function BranchHub({ onNavigate }: BranchHubProps) {
   const branch = resolveBranch(activeBranch)
   const accent = posAccent(branch)
   const products = useProductStore((s) => s.products)
-  const { settings, fetchSettings } = useSettingsStore()
+  const settings = useSettingsStore((s) => s.settingsByBranch[branch])
+  const fetchSettings = useSettingsStore((s) => s.fetchSettings)
 
   useEffect(() => { void fetchSettings(branch) }, [fetchSettings, branch])
 
