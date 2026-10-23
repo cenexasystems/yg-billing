@@ -11,7 +11,7 @@ import {
   Edit2, AlertCircle, Check
 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
-import { useProductStore, useVariantStore, useAdminAuthStore, resolveBranch, type Product } from '../store/store'
+import { useProductStore, useVariantStore, useAdminAuthStore, useSettingsStore, resolveBranch, type Product } from '../store/store'
 import { branchShortLabel } from '../lib/branchTheme'
 import { useNavigationStore } from '../store/navigationStore'
 import { barcodeService } from '../services/barcodeService'
@@ -184,9 +184,10 @@ export default function Pos(props: PosProps = {}) {
   const [availableVariants, setAvailableVariants] = useState<ProductVariant[]>([])
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null)
   const [variantPickerQty, setVariantPickerQty] = useState(1)
-  const [billGstEnabled, setBillGstEnabled] = useState(false)
-  const [gstInput, setGstInput] = useState('')
-  const [gstType, setGstType] = useState<'percent' | 'flat'>('percent')
+  // GST is set per POS in Store Settings and applied to every bill.
+  const posSettings = useSettingsStore((s) => s.settingsByBranch[branch])
+  const settingsGstRate = posSettings?.gstEnabled ? Math.max(0, posSettings.gstRate || 0) : 0
+  const billGstEnabled = settingsGstRate > 0
   const [catalogOpen, setCatalogOpen] = useState(false)
   const [addUnregisteredOpen, setAddUnregisteredOpen] = useState(false)
   const [depositOpen, setDepositOpen] = useState(false)
@@ -273,11 +274,9 @@ export default function Pos(props: PosProps = {}) {
   const discountedSubtotal = Math.max(0, subtotal - couponDiscount - manualDiscountAmount)
 
   const totalGst = billGstEnabled
-    ? (gstType === 'percent'
-      ? Math.max(0, Math.round((discountedSubtotal * (Math.max(0, Number(gstInput) || 0) / 100)) * 100) / 100)
-      : Math.max(0, Number(gstInput) || 0))
+    ? Math.max(0, Math.round((discountedSubtotal * (settingsGstRate / 100)) * 100) / 100)
     : 0
-  const gstRate = billGstEnabled && gstType === 'percent' ? Math.max(0, Number(gstInput) || 0) : null
+  const gstRate = billGstEnabled ? settingsGstRate : null
   const gstSplit = splitGst(totalGst, discountedSubtotal, gstRate)
   const total = Math.max(0, discountedSubtotal + (Number(shipping || 0) || 0) + totalGst)
 
@@ -683,9 +682,6 @@ export default function Pos(props: PosProps = {}) {
     setRemarks('')
     setReferenceNumber('')
     setBillingDate('')
-    setBillGstEnabled(false)
-    setGstInput('')
-    setGstType('percent')
     setOrdermode('offline')
     setMobilePanelView('catalogue')
     setPaymentType(defaultPaymentType)
@@ -1701,40 +1697,13 @@ export default function Pos(props: PosProps = {}) {
                 </div>
               </div>
 
-              {/* GST Toggle */}
+              {/* GST (fixed per POS in Store Settings) */}
               <div className="flex items-center justify-between py-1 border-b border-gray-200">
-                <span className="text-[11px] font-black text-[#374151]">Enable GST on Bill</span>
-                <button
-                  type="button"
-                  onClick={() => setBillGstEnabled(!billGstEnabled)}
-                  className={`w-9 h-5 rounded-full p-0.5 transition-colors ${billGstEnabled ? 'bg-[#7A1220]' : 'bg-gray-200'}`}
-                >
-                  <div className={`w-4 h-4 rounded-full bg-white transition-transform ${billGstEnabled ? 'translate-x-4' : 'translate-x-0'}`}></div>
-                </button>
+                <span className="text-[11px] font-black text-[#374151]">
+                  {billGstEnabled ? `GST ${Number(settingsGstRate.toFixed(2))}% on all bills` : 'GST off'}
+                </span>
+                <span className="text-[10px] font-semibold text-gray-500">Change in Store Settings</span>
               </div>
-
-              {billGstEnabled && (
-                <div className="flex gap-2">
-                  <div className="relative shrink-0">
-                    <select
-                      value={gstType}
-                      onChange={e => setGstType(e.target.value as 'flat'|'percent')}
-                      className="appearance-none h-9 bg-white border border-gray-200 rounded-xl pl-2 pr-7 text-[12px] font-black text-[#111111] focus:outline-none focus:border-[#D4AF37]"
-                    >
-                      <option value="percent">%</option>
-                      <option value="flat">₹</option>
-                    </select>
-                    <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#374151] pointer-events-none" />
-                  </div>
-                  <input
-                    type="number" onWheel={(e) => (e.target as HTMLInputElement).blur()}
-                    value={gstInput}
-                    onChange={e => setGstInput(e.target.value)}
-                    placeholder={gstType === 'percent' ? "e.g. 6" : "0"}
-                    className="w-full h-9 px-3 bg-white border border-gray-200 rounded-xl text-[12px] font-black text-[#111111] text-right focus:outline-none focus:border-[#D4AF37]"
-                  />
-                </div>
-              )}
 
               {/* Summary calculations */}
               <div className="bg-[#FAFAF8] rounded-xl border border-gray-200 p-2.5 space-y-1.5">

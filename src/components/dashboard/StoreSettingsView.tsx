@@ -27,13 +27,15 @@ type FormState = {
   address: string
   instagramId: string
   gstin: string
+  gstEnabled: boolean
+  gstRate: string
   themeColor: string
   logoUrl: string
 }
 
 const emptyForm: FormState = {
   name: '', ownerName: '', businessType: '', phoneNumber: '', shopContactNumber: '',
-  email: '', address: '', instagramId: '', gstin: '', themeColor: '#8B1A1A', logoUrl: '',
+  email: '', address: '', instagramId: '', gstin: '', gstEnabled: false, gstRate: '18', themeColor: '#8B1A1A', logoUrl: '',
 }
 
 export default function StoreSettingsView() {
@@ -84,6 +86,8 @@ export default function StoreSettingsView() {
       address: currentBranchSettings.address,
       instagramId: currentBranchSettings.instagramId,
       gstin: currentBranchSettings.gstin || '',
+      gstEnabled: currentBranchSettings.gstEnabled,
+      gstRate: String(currentBranchSettings.gstRate ?? 18),
       themeColor: currentBranchSettings.themeColor || (target === 'pos2' ? '#B8860B' : '#8B1A1A'),
       logoUrl: currentBranchSettings.logoUrl || '',
     })
@@ -101,7 +105,7 @@ export default function StoreSettingsView() {
     setForm({
       name: currentBranchSettings.name, ownerName: currentBranchSettings.ownerName, businessType: currentBranchSettings.businessType,
       phoneNumber, shopContactNumber: shopContactNumber || phoneNumber, email: currentBranchSettings.email,
-      address: currentBranchSettings.address, instagramId: currentBranchSettings.instagramId, gstin: currentBranchSettings.gstin || '', themeColor: currentBranchSettings.themeColor,
+      address: currentBranchSettings.address, instagramId: currentBranchSettings.instagramId, gstin: currentBranchSettings.gstin || '', gstEnabled: currentBranchSettings.gstEnabled, gstRate: String(currentBranchSettings.gstRate ?? 18), themeColor: currentBranchSettings.themeColor,
       logoUrl: currentBranchSettings.logoUrl || '',
     })
     setMessage(null)
@@ -133,6 +137,8 @@ export default function StoreSettingsView() {
         address: form.address.trim(),
         instagram_id: form.instagramId.trim(),
         gstin: form.gstin.trim().toUpperCase(),
+        gst_enabled: form.gstEnabled,
+        gst_rate: Math.min(100, Math.max(0, Number(form.gstRate) || 0)),
         theme_color: normalizeHex(form.themeColor),
         logo_url: form.logoUrl || null,
         updated_at: new Date().toISOString(),
@@ -401,6 +407,42 @@ export default function StoreSettingsView() {
                 <label className="block text-[10px] font-black uppercase tracking-wide text-gray-500 mb-1">GST Number (GSTIN)</label>
                 <input value={form.gstin} onChange={(e) => setForm((f) => ({ ...f, gstin: e.target.value.toUpperCase() }))} placeholder="e.g. 33AJEPG5088P1ZS" maxLength={15} className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-[#FBFAF6] text-sm font-bold uppercase tracking-wide outline-none focus:border-gray-400" />
                 <p className="mt-1 text-[10px] font-semibold text-gray-500">Printed on this POS's invoices and receipts. Leave empty to hide it.</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-[#FBFAF6] p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">Apply GST to every bill</p>
+                    <p className="mt-0.5 text-[10px] font-semibold text-gray-500">Added automatically to all bills on this POS, shown as CGST + SGST.</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={form.gstEnabled}
+                    aria-label="Apply GST to every bill"
+                    onClick={() => setForm((f) => ({ ...f, gstEnabled: !f.gstEnabled }))}
+                    className={`shrink-0 w-10 h-6 rounded-full p-0.5 transition-colors ${form.gstEnabled ? 'bg-[#7A1220]' : 'bg-gray-300'}`}
+                  >
+                    <span className={`block w-5 h-5 rounded-full bg-white transition-transform ${form.gstEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </button>
+                </div>
+                {form.gstEnabled && (
+                  <div className="mt-3">
+                    <label className="block text-[10px] font-black uppercase tracking-wide text-gray-500 mb-1">GST rate (%)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="0.01"
+                      value={form.gstRate}
+                      onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                      onChange={(e) => setForm((f) => ({ ...f, gstRate: e.target.value }))}
+                      className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-white text-sm font-bold outline-none focus:border-gray-400"
+                    />
+                    <p className="mt-1 text-[10px] font-semibold text-gray-500">
+                      {(Number(form.gstRate) || 0) > 0 ? `Bills show CGST ${Number(((Number(form.gstRate) || 0) / 2).toFixed(2))}% + SGST ${Number(((Number(form.gstRate) || 0) / 2).toFixed(2))}%.` : 'Enter a rate above 0 to charge GST.'}
+                    </p>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-wide text-gray-500 mb-1">Shop Address</label>
