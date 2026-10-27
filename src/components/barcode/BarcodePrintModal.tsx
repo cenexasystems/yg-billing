@@ -64,7 +64,25 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
     return storedSettings.printerType || branchDefaults.printerType
   })
 
-  const handlePrinterTypeChange = (type: 'label' | 'regular') => {
+  const footerStorageKey = `barcode-footer-text:${branch}`
+  const [footerText, setFooterText] = useState<string>(() => {
+    try {
+      return localStorage.getItem(footerStorageKey) ?? BRAND_EN
+    } catch {
+      return BRAND_EN
+    }
+  })
+
+  const handleFooterTextChange = (value: string) => {
+    setFooterText(value)
+    try {
+      localStorage.setItem(footerStorageKey, value)
+    } catch {
+      // storage unavailable; the edit still applies for this session
+    }
+  }
+
+  const handlePrinterTypeChange =(type: 'label' | 'regular') => {
     setPrinterType(type)
     const current = getStoredBarcodeSettings(branch)
     saveStoredBarcodeSettings({ ...current, printerType: type }, branch)
@@ -154,7 +172,7 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
           ${svgMarkup}
         </div>
         <div class="footer">
-          <span>${mrp && mrp > price ? `<span class="mrp">MRP ₹${mrp}</span>` : `<span class="retail-tag">${BRAND_EN}</span>`}</span>
+          <span>${mrp && mrp > price ? `<span class="mrp">MRP ₹${mrp}</span>` : `<span class="retail-tag">${footerText.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string))}</span>`}</span>
           <span class="price">₹${price}</span>
         </div>
       </div>
@@ -500,7 +518,34 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
               </div>
             </div>
 
-            {/* Row 2: Quantity Stepper & Quick Pills */}
+            {/* Row 2: Footer text */}
+            <div className="pt-3 border-t border-[#E8D399]/50">
+              <label className="block text-xs font-black uppercase tracking-wider text-gray-700 mb-2">
+                Label Footer Text
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  maxLength={40}
+                  value={footerText}
+                  onChange={(e) => handleFooterTextChange(e.target.value)}
+                  placeholder={BRAND_EN}
+                  className="flex-1 min-w-0 py-2 px-3 rounded-xl border-2 border-[#E8D399] bg-white font-bold text-sm text-gray-900 outline-none focus:border-[#7A1220] shadow-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleFooterTextChange(BRAND_EN)}
+                  className="px-3 py-2 rounded-xl text-xs font-black bg-white hover:bg-gray-100 border border-gray-300 text-gray-700 shadow-sm cursor-pointer shrink-0"
+                >
+                  Reset
+                </button>
+              </div>
+              <p className="text-[11px] text-gray-500 mt-1">
+                Shown at the bottom-left of the sticker (hidden when the product has an MRP discount).
+              </p>
+            </div>
+
+            {/* Row 3: Quantity Stepper & Quick Pills */}
             <div className="pt-3 border-t border-[#E8D399]/50">
               <label className="block text-xs font-black uppercase tracking-wider text-gray-700 mb-2">
                 Number of Labels to Print
@@ -574,7 +619,7 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
                 barcodeValue={barcodeValue}
                 price={price}
                 mrp={mrp}
-                storeName={BRAND_EN}
+                storeName={footerText}
                 widthMm={selectedPreset.widthMm}
                 heightMm={selectedPreset.heightMm}
               />
