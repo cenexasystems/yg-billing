@@ -105,7 +105,7 @@ export const BarcodeLabel: React.FC<BarcodeLabelProps> = ({
           </span>
         ) : (
           <span className="text-gray-600 font-bold" style={{ fontSize: isSmall ? '6px' : isLarge ? '8.5px' : '7px' }}>
-            {storeName} RETAIL
+            {storeName}
           </span>
         )}
         <span

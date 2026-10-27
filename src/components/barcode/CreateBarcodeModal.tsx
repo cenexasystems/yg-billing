@@ -450,7 +450,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
             ${line3 ? `<div class="extra-line">${line3}</div>` : ''}
             ${line4 ? `<div class="extra-line">${line4}</div>` : ''}
             <div class="footer">
-              <span>${item.line2 ? `<span class="tag">${esc(item.line2)}</span>` : `<span class="tag">${BRAND_EN} RETAIL</span>`}</span>
+              <span>${item.line2 ? `<span class="tag">${esc(item.line2)}</span>` : `<span class="tag">${BRAND_EN}</span>`}</span>
               ${settings.showSalePrice ? `<span class="price">₹${item.price}</span>` : ''}
             </div>
           </div>
