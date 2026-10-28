@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { X, Printer, Copy, Check, Settings } from 'lucide-react'
 import { BarcodeLabel } from './BarcodeLabel'
 import { BRAND_EN, getBarcodePrefix, getDefaultBarcodeSettings } from '../../lib/brand'
-import { type BarcodeSettings, getAllLabelSizes, generateBarcodeSvgString, getStoredBarcodeSettings } from '../../lib/barcode'
+import { type BarcodeSettings, getAllLabelSizes, buildPrintBarcode, PRINT_BARCODE_CSS, getStoredBarcodeSettings } from '../../lib/barcode'
 import { BarcodeSettingsDrawer } from './BarcodeSettingsDrawer'
 import { useAdminAuthStore, resolveBranch } from '../../store/store'
 
@@ -134,23 +134,12 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
       const isSmall = selectedPreset.heightMm <= 25
       const isLarge = selectedPreset.heightMm >= 40
 
-      // Proportional barcode sizing preventing detail overlaps
-      // Barcode bars take ~32% of height, leaving balanced space for text, header, and footer
-      const barcodeHeightPx = Math.max(16, Math.round(selectedPreset.heightMm * 0.32 * 3.7795))
-      const printableWidthPx = Math.max(30, (selectedPreset.widthMm - 4) * 3.7795)
-      const barcodeBarWidth = Math.max(0.80, Math.min(1.70, Math.round((printableWidthPx / 120) * 100) / 100))
-      const barcodeFontSize = Math.max(6, Math.min(9.5, Math.round(selectedPreset.heightMm * 0.20 * 10) / 10))
-
-      // Direct SVG generation without CDN script dependencies
-      const svgMarkup = generateBarcodeSvgString(barcodeValue, {
-        width: barcodeBarWidth,
-        height: barcodeHeightPx,
-        fontSize: barcodeFontSize,
-        font: 'Arial, sans-serif',
-        margin: 0,
-        textMargin: 1.5,
-        displayValue: true,
-      })
+      // Scanner-readable bars: whole printer dots, white quiet zone, exact mm size
+      const svgMarkup = buildPrintBarcode(barcodeValue, {
+        labelWidthMm: selectedPreset.widthMm,
+        labelHeightMm: selectedPreset.heightMm,
+        thermal: isThermal,
+      })?.svg || ''
 
       const headerFontSize = isSmall ? '7pt' : isLarge ? '10.5pt' : '8.5pt'
       const titleFontSize = isSmall ? '6pt' : isLarge ? '9pt' : '7.5pt'
@@ -319,16 +308,10 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
               justify-content: center;
               align-items: center;
               margin: 0.4mm 0;
-              overflow: hidden;
+              /* the barcode may be wider than the padded area; it stays centred and the sticker edge clips */
+              overflow: visible;
             }
-            .barcode-box svg {
-              display: block;
-              margin: 0 auto;
-              max-width: 98%;
-              max-height: 100%;
-              width: auto;
-              height: auto;
-            }
+            ${PRINT_BARCODE_CSS}
             .footer {
               width: 100%;
               display: flex;
