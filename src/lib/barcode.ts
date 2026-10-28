@@ -1,4 +1,5 @@
 import JsBarcode from 'jsbarcode'
+import { getDefaultBarcodeSettings } from './brand'
 
 /** Normalize any scanned or user-entered barcode to a consistent UPPERCASE trimmed string. */
 export const normalizeBarcode = (code: string | null | undefined): string => {
@@ -68,10 +69,8 @@ export function getStoredBarcodeSettings(branch?: string): BarcodeSettings {
     console.error('Failed to parse barcode settings:', e)
   }
 
-  // Return branch-specific defaults if no stored settings
-  // Import at top: import { getDefaultBarcodeSettings } from './brand'
-  // For now, return DEFAULT_BARCODE_SETTINGS
-  return DEFAULT_BARCODE_SETTINGS
+  // Nothing saved yet: use this branch's defaults
+  return { ...DEFAULT_BARCODE_SETTINGS, ...getDefaultBarcodeSettings(branch) }
 }
 
 export function saveStoredBarcodeSettings(settings: BarcodeSettings, branch?: string): void {
@@ -184,6 +183,82 @@ export function generateBarcodeSvgString(
     return ''
   }
 }
+
+export type PrintBarcode = { svg: string; widthMm: number; heightMm: number; moduleMm: number }
+
+/**
+ * Barcode SVG for printed stickers, sized so scanners can read it:
+ * - every bar is a whole number of printer dots (203 dpi thermal / 600 dpi desktop),
+ *   so bars don't come out uneven from fractional scaling;
+ * - a white quiet zone is kept on both sides (scanners need it to find the code);
+ * - the SVG carries its exact size in mm and must not be stretched by CSS.
+ */
+export function buildPrintBarcode(
+  value: string,
+  opts: { labelWidthMm: number; labelHeightMm: number; thermal: boolean },
+): PrintBarcode | null {
+  if (typeof document === 'undefined' || !value.trim()) return null
+  try {
+    const probe = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    JsBarcode(probe, value.trim(), { format: 'CODE128', width: 1, height: 10, margin: 0, displayValue: false })
+    const modules = parseFloat(probe.getAttribute('width') || '0')
+    if (!modules) return null
+
+    const dotMm = 25.4 / (opts.thermal ? 203 : 600)
+    const maxModuleMm = 0.38
+    const usableMm = opts.labelWidthMm - 0.4
+    let quiet = 6
+    let moduleMm = dotMm
+    // Prefer a wide quiet zone, then the thickest bars that still fit.
+    for (const q of [10, 8, 6]) {
+      const dots = Math.min(Math.floor(usableMm / ((modules + 2 * q) * dotMm)), Math.floor(maxModuleMm / dotMm))
+      if (dots * dotMm >= (opts.thermal ? 2 * dotMm : 0.2)) { quiet = q; moduleMm = dots * dotMm; break }
+      if (q === 6) { quiet = 6; moduleMm = Math.max(1, dots) * dotMm }
+    }
+
+    const barMm = Math.max(5, opts.labelHeightMm * 0.32)
+    const textMm = Math.max(1.8, Math.min(3, opts.labelHeightMm * 0.09))
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    JsBarcode(svg, value.trim(), {
+      format: 'CODE128',
+      width: 1, // 1 SVG unit = 1 module; scaled to mm below
+      height: barMm / moduleMm,
+      margin: 0,
+      marginLeft: quiet,
+      marginRight: quiet,
+      displayValue: true,
+      fontSize: textMm / moduleMm,
+      font: 'Arial, sans-serif',
+      fontOptions: 'bold',
+      textMargin: 0.3 / moduleMm,
+      lineColor: '#000000',
+      background: '#ffffff',
+    })
+    const widthMm = parseFloat(svg.getAttribute('width') || '0') * moduleMm
+    const heightMm = parseFloat(svg.getAttribute('height') || '0') * moduleMm
+    svg.setAttribute('width', `${widthMm.toFixed(3)}mm`)
+    svg.setAttribute('height', `${heightMm.toFixed(3)}mm`)
+    svg.setAttribute('shape-rendering', 'crispEdges')
+    svg.setAttribute('class', 'print-barcode')
+    return { svg: svg.outerHTML || new XMLSerializer().serializeToString(svg), widthMm, heightMm, moduleMm }
+  } catch (err) {
+    console.error('[buildPrintBarcode] Failed to generate barcode:', err)
+    return null
+  }
+}
+
+/** CSS for `.print-barcode` inside a sticker: exact size, never scaled. */
+export const PRINT_BARCODE_CSS = `
+  .print-barcode {
+    display: block;
+    flex-shrink: 0;
+    max-width: none !important;
+    max-height: none !important;
+    shape-rendering: crispEdges;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+`
 
 /**
  * Format barcode for UI display.

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Printer, Copy, Check } from 'lucide-react'
+import { X, Printer, Copy, Check, Settings } from 'lucide-react'
 import { BarcodeLabel } from './BarcodeLabel'
-import { BRAND_EN, getBarcodePrefix, getDefaultBarcodeSettings } from '../../lib/brand'
-import { getAllLabelSizes, generateBarcodeSvgString, getStoredBarcodeSettings, saveStoredBarcodeSettings } from '../../lib/barcode'
+import { BRAND_EN, getBarcodePrefix } from '../../lib/brand'
+import { type BarcodeSettings, getAllLabelSizes, buildPrintBarcode, PRINT_BARCODE_CSS, getStoredBarcodeSettings } from '../../lib/barcode'
+import { BarcodeSettingsDrawer } from './BarcodeSettingsDrawer'
 import { useAdminAuthStore, resolveBranch } from '../../store/store'
 
 export interface BarcodePrintModalProps {
@@ -25,15 +26,18 @@ type LabelSizePreset = {
   horizontalGapMm: number
 }
 
-const getAvailablePresets = (branch: string): LabelSizePreset[] => {
+// The label size is fixed in Barcode Settings; the print modal only reads it.
+const resolvePreset = (branch: string, sizeId: string): LabelSizePreset => {
   const sizes = getAllLabelSizes(branch)
-  return sizes.map((s) => ({
+  const s = sizes.find((sz) => sz.id === sizeId) || sizes[0]
+  if (!s) return { name: 'Thermal Standard', widthMm: 50, heightMm: 25, labelsPerRow: 1, horizontalGapMm: 0 }
+  return {
     name: `${s.name} (${s.widthMm}mm × ${s.heightMm}mm${s.labelsPerRow > 1 ? ` × ${s.labelsPerRow} across` : ''})`,
     widthMm: s.widthMm,
     heightMm: s.heightMm,
     labelsPerRow: s.labelsPerRow || 1,
     horizontalGapMm: s.horizontalGapMm || 0,
-  }))
+  }
 }
 
 export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
@@ -47,22 +51,13 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
   defaultQuantity = 1,
 }) => {
   const branch = useAdminAuthStore((state) => resolveBranch(state.activeBranch))
-  const presets = getAvailablePresets(branch)
   const [quantity, setQuantity] = useState<string>(String(defaultQuantity || 1))
-  const branchDefaults = getDefaultBarcodeSettings(branch)
-  const storedSettings = getStoredBarcodeSettings(branch)
-  const [selectedPreset, setSelectedPreset] = useState<LabelSizePreset>(
-    (() => {
-      // Branch default size id (e.g. '1_100x50') → matching preset by physical dimensions
-      const def = getAllLabelSizes(branch).find(sz => sz.id === branchDefaults.selectedSizeId)
-      return def && presets.find(p => p.widthMm === def.widthMm && p.heightMm === def.heightMm && p.labelsPerRow === (def.labelsPerRow || 1))
-    })() || presets[0] ||
-    { name: 'Thermal Standard', widthMm: 50, heightMm: 25, labelsPerRow: 1, horizontalGapMm: 0 }
-  )
+  const [settings, setSettings] = useState<BarcodeSettings>(() => getStoredBarcodeSettings(branch))
+  const [showSettings, setShowSettings] = useState(false)
+  useEffect(() => { setSettings(getStoredBarcodeSettings(branch)) }, [branch])
+  const selectedPreset = resolvePreset(branch, settings.selectedSizeId)
+  const printerType = settings.printerType
   const [copied, setCopied] = useState(false)
-  const [printerType, setPrinterType] = useState<'label' | 'regular'>(() => {
-    return storedSettings.printerType || branchDefaults.printerType
-  })
 
   const footerStorageKey = `barcode-footer-text:${branch}`
   const [footerText, setFooterText] = useState<string>(() => {
@@ -80,12 +75,6 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
     } catch {
       // storage unavailable; the edit still applies for this session
     }
-  }
-
-  const handlePrinterTypeChange =(type: 'label' | 'regular') => {
-    setPrinterType(type)
-    const current = getStoredBarcodeSettings(branch)
-    saveStoredBarcodeSettings({ ...current, printerType: type }, branch)
   }
 
   // Close on Escape key & lock body scrolling when open
@@ -135,23 +124,12 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
       const isSmall = selectedPreset.heightMm <= 25
       const isLarge = selectedPreset.heightMm >= 40
 
-      // Proportional barcode sizing preventing detail overlaps
-      // Barcode bars take ~32% of height, leaving balanced space for text, header, and footer
-      const barcodeHeightPx = Math.max(16, Math.round(selectedPreset.heightMm * 0.32 * 3.7795))
-      const printableWidthPx = Math.max(30, (selectedPreset.widthMm - 4) * 3.7795)
-      const barcodeBarWidth = Math.max(0.80, Math.min(1.70, Math.round((printableWidthPx / 120) * 100) / 100))
-      const barcodeFontSize = Math.max(6, Math.min(9.5, Math.round(selectedPreset.heightMm * 0.20 * 10) / 10))
-
-      // Direct SVG generation without CDN script dependencies
-      const svgMarkup = generateBarcodeSvgString(barcodeValue, {
-        width: barcodeBarWidth,
-        height: barcodeHeightPx,
-        fontSize: barcodeFontSize,
-        font: 'Arial, sans-serif',
-        margin: 0,
-        textMargin: 1.5,
-        displayValue: true,
-      })
+      // Scanner-friendly barcode: whole-dot bars, quiet zone, exact mm size
+      const svgMarkup = buildPrintBarcode(barcodeValue, {
+        labelWidthMm: selectedPreset.widthMm,
+        labelHeightMm: selectedPreset.heightMm,
+        thermal: isThermal,
+      })?.svg || ''
 
       const headerFontSize = isSmall ? '7pt' : isLarge ? '10.5pt' : '8.5pt'
       const titleFontSize = isSmall ? '6pt' : isLarge ? '9pt' : '7.5pt'
@@ -320,16 +298,10 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
               justify-content: center;
               align-items: center;
               margin: 0.4mm 0;
-              overflow: hidden;
+              /* the barcode may be wider than the padded area; it stays centred and the sticker edge clips */
+              overflow: visible;
             }
-            .barcode-box svg {
-              display: block;
-              margin: 0 auto;
-              max-width: 98%;
-              max-height: 100%;
-              width: auto;
-              height: auto;
-            }
+            ${PRINT_BARCODE_CSS}
             .footer {
               width: 100%;
               display: flex;
@@ -455,67 +427,27 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
 
           {/* Configuration Form Card */}
           <div className="bg-[#FBFAF6] border border-[#E8D399]/70 rounded-xl p-2 sm:p-2.5 space-y-2.5">
-            {/* Row 1: Target Printer & Preset */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Target Printer Type */}
-              <div>
-                <label className="block text-xs font-black uppercase tracking-wider text-gray-700 mb-1.5">
-                  Target Printer
+            {/* Row 1: Fixed printer & label size (set in Barcode Settings) */}
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <label className="block text-xs font-black uppercase tracking-wider text-gray-700 mb-1">
+                  Label Size
                 </label>
-                <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-white border border-[#E8D399] shadow-sm">
-                  <button
-                    type="button"
-                    onClick={() => handlePrinterTypeChange('label')}
-                    className={`py-2 px-2.5 rounded-lg text-xs font-black transition-all text-center cursor-pointer ${
-                      printerType === 'label'
-                        ? 'bg-[#7A1220] text-[#D4AF37] shadow-sm'
-                        : 'text-gray-600 hover:text-black hover:bg-gray-100'
-                    }`}
-                  >
-                    Thermal (Roll)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handlePrinterTypeChange('regular')}
-                    className={`py-2 px-2.5 rounded-lg text-xs font-black transition-all text-center cursor-pointer ${
-                      printerType === 'regular'
-                        ? 'bg-[#7A1220] text-[#D4AF37] shadow-sm'
-                        : 'text-gray-600 hover:text-black hover:bg-gray-100'
-                    }`}
-                  >
-                    Desktop (A4)
-                  </button>
-                </div>
-                <p className="text-[11px] text-gray-500 mt-1">
+                <p className="text-sm font-bold text-gray-900 truncate">{selectedPreset.name}</p>
+                <p className="text-[11px] text-gray-500 mt-0.5">
                   {printerType === 'label'
-                    ? `Roll label printer (${(selectedPreset.labelsPerRow || 1) > 1 ? `${selectedPreset.labelsPerRow} labels per page` : '1 label per page'})`
-                    : 'A4 sheet printer (Canon G2010, HP, Epson)'}
+                    ? `Thermal roll printer (${(selectedPreset.labelsPerRow || 1) > 1 ? `${selectedPreset.labelsPerRow} labels per row` : '1 label per row'})`
+                    : 'Desktop A4 sheet printer'}
                 </p>
               </div>
-
-              {/* Label Sizing Preset */}
-              <div>
-                <label className="block text-xs font-black uppercase tracking-wider text-gray-700 mb-1.5">
-                  Label Sizing Preset
-                </label>
-                <select
-                  value={selectedPreset.name}
-                  onChange={(e) => {
-                    const preset = presets.find((p) => p.name === e.target.value)
-                    if (preset) setSelectedPreset(preset)
-                  }}
-                  className="w-full py-2.5 px-3 rounded-xl border-2 border-[#E8D399] bg-white font-bold text-xs sm:text-sm text-gray-900 outline-none focus:border-[#7A1220] shadow-sm cursor-pointer"
-                >
-                  {presets.map((p) => (
-                    <option key={p.name} value={p.name}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[11px] text-gray-500 mt-1">
-                  Dimensions: {selectedPreset.widthMm}mm × {selectedPreset.heightMm}mm
-                </p>
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowSettings(true)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black bg-white hover:bg-gray-100 border border-gray-300 text-gray-700 shadow-sm cursor-pointer shrink-0"
+              >
+                <Settings size={14} />
+                Change
+              </button>
             </div>
 
             {/* Row 2: Footer text */}
@@ -646,6 +578,13 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
           </button>
         </div>
       </div>
+      <BarcodeSettingsDrawer
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        settings={settings}
+        onUpdateSettings={setSettings}
+        branch={branch}
+      />
     </div>,
     document.body
   )

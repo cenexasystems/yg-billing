@@ -19,7 +19,8 @@ import {
   getStoredBarcodeSettings,
   getAllLabelSizes,
   renderBarcodeSvg,
-  generateBarcodeSvgString,
+  buildPrintBarcode,
+  PRINT_BARCODE_CSS,
 } from '../../lib/barcode'
 import { BRAND_EN, BRAND_MONOGRAM, getBarcodePrefix, getDefaultBarcodeSettings } from '../../lib/brand'
 import { barcodeService } from '../../services/barcodeService'
@@ -409,11 +410,6 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
     const isSmall = currentSizeConfig.heightMm <= 25
     const isLarge = currentSizeConfig.heightMm >= 40
 
-    // Proportional barcode sizing preventing detail overlaps
-    const barcodeHeightPx = Math.max(16, Math.round(currentSizeConfig.heightMm * 0.32 * 3.7795))
-    const printableWidthPx = Math.max(30, (currentSizeConfig.widthMm - 4) * 3.7795)
-    const barcodeBarWidth = Math.max(0.80, Math.min(1.70, Math.round((printableWidthPx / 120) * 100) / 100))
-    const barcodeFontSize = Math.max(6, Math.min(9.5, Math.round(currentSizeConfig.heightMm * 0.20 * 10) / 10))
 
     const headerFontSize = isSmall ? '7pt' : isLarge ? '10.5pt' : '8.5pt'
     const titleFontSize = isSmall ? '6pt' : isLarge ? '9pt' : '7.5pt'
@@ -430,15 +426,12 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
       // Line 3 defaults to "Price: ₹…"; skip it when the price is already printed in the footer
       const line3 = item.line3 && !(settings.showSalePrice && /^price\s*:/i.test(item.line3)) ? esc(item.line3) : ''
       const line4 = item.line4 ? esc(item.line4) : ''
-      const svgMarkup = generateBarcodeSvgString(item.barcodeValue, {
-        width: barcodeBarWidth,
-        height: barcodeHeightPx,
-        fontSize: barcodeFontSize,
-        font: 'Arial, sans-serif',
-        margin: 4,
-        textMargin: 1.5,
-        displayValue: true,
-      })
+      // Scanner-friendly barcode: whole-dot bars, quiet zone, exact mm size
+      const svgMarkup = buildPrintBarcode(item.barcodeValue, {
+        labelWidthMm: currentSizeConfig.widthMm,
+        labelHeightMm: currentSizeConfig.heightMm,
+        thermal: isThermal,
+      })?.svg || ''
       for (let i = 0; i < count; i++) {
         allStickers.push(`
           <div class="label-sticker">
@@ -575,17 +568,10 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
               justify-content: center;
               align-items: center;
               margin: 0.4mm 0;
-              overflow: hidden;
+              /* the barcode may be wider than the padded area; it stays centred and the sticker edge clips */
+              overflow: visible;
             }
-            .barcode-box svg {
-              display: block;
-              margin: 0 auto;
-              max-width: 88%;
-              max-height: 100%;
-              width: auto;
-              height: auto;
-              shape-rendering: crispEdges;
-            }
+            ${PRINT_BARCODE_CSS}
             .extra-line {
               font-size: ${tagFontSize};
               font-weight: 700;
