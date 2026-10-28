@@ -216,8 +216,10 @@ export function buildPrintBarcode(
       if (q === 6) { quiet = 6; moduleMm = Math.max(1, dots) * dotMm }
     }
 
-    const barMm = Math.max(5, opts.labelHeightMm * 0.32)
-    const textMm = Math.max(1.8, Math.min(3, opts.labelHeightMm * 0.09))
+    // Small labels (≤ 22 mm tall) also carry a name, title and price, so bars are shorter there.
+    const small = opts.labelHeightMm <= 22
+    const barMm = Math.max(4.5, opts.labelHeightMm * (small ? 0.25 : 0.32))
+    const textMm = small ? 1.7 : Math.max(1.8, Math.min(3, opts.labelHeightMm * 0.09))
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
     JsBarcode(svg, value.trim(), {
       format: 'CODE128',
