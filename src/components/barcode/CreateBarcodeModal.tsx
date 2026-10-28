@@ -412,7 +412,11 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
     // Proportional barcode sizing preventing detail overlaps
     const barcodeHeightPx = Math.max(16, Math.round(currentSizeConfig.heightMm * 0.32 * 3.7795))
     const printableWidthPx = Math.max(30, (currentSizeConfig.widthMm - 4) * 3.7795)
-    const barcodeBarWidth = Math.max(0.80, Math.min(1.70, Math.round((printableWidthPx / 120) * 100) / 100))
+    // Narrow labels: use a fixed bar width of ~0.96px (≈0.25mm = 2 printer dots at 203dpi, 3 dots at 300dpi)
+    // so every bar prints on whole dots. Fractional widths (e.g. 0.87px) blur and break scanning.
+    const barcodeBarWidth = currentSizeConfig.widthMm < 34
+      ? 0.96
+      : Math.max(0.80, Math.min(1.70, Math.round((printableWidthPx / 120) * 100) / 100))
     const barcodeFontSize = Math.max(6, Math.min(9.5, Math.round(currentSizeConfig.heightMm * 0.20 * 10) / 10))
 
     const headerFontSize = isSmall ? '7pt' : isLarge ? '10.5pt' : '8.5pt'
@@ -435,7 +439,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
         height: barcodeHeightPx,
         fontSize: barcodeFontSize,
         font: 'Arial, sans-serif',
-        margin: 4,
+        margin: 0,
         textMargin: 1.5,
         displayValue: true,
       })
@@ -580,11 +584,10 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
             .barcode-box svg {
               display: block;
               margin: 0 auto;
-              max-width: 88%;
+              max-width: 98%;
               max-height: 100%;
               width: auto;
               height: auto;
-              shape-rendering: crispEdges;
             }
             .extra-line {
               font-size: ${tagFontSize};
