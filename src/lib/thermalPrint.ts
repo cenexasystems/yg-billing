@@ -73,14 +73,17 @@ export function printThermalReceipt(data: ThermalReceiptData) {
             size: 80mm auto;
           }
           body {
-            font-family: 'Courier New', Courier, monospace, sans-serif;
-            font-size: 12px;
-            color: #000;
-            margin: 0;
-            padding: 4mm;
-            width: 80mm;
-            box-sizing: border-box;
-          }
+  font-family: 'Courier New', Courier, monospace, sans-serif;
+  font-size: 12px;
+  color: #000;
+  font-weight: 700;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  margin: 0;
+  padding: 4mm;
+  width: 80mm;
+  box-sizing: border-box;
+}
           .text-center { text-align: center; }
           .text-right { text-align: right; }
           .text-left { text-align: left; }
@@ -92,7 +95,7 @@ export function printThermalReceipt(data: ThermalReceiptData) {
           .border-bottom { border-bottom: 1px dashed #000; padding-bottom: 4px; margin-bottom: 4px; }
           .border-top { border-top: 1px dashed #000; padding-top: 4px; margin-top: 4px; }
           table { width: 100%; border-collapse: collapse; }
-          th, td { padding: 2px 0; vertical-align: top; }
+          th, td { padding: 2px 0; vertical-align: top; font-weight: 700; }
           .item-name { font-size: 11px; padding-right: 4px; }
         </style>
       </head>
@@ -101,7 +104,7 @@ export function printThermalReceipt(data: ThermalReceiptData) {
           <div class="font-bold" style="font-size: 16px; letter-spacing: 2px;">${data.storeName || BRAND_EN}</div>
           <div style="font-size: 10px; margin-top: 2px;">${data.storeAddress || profile.address}</div>
           <div class="mt-1" style="font-size: 10px;">Ph: ${data.storePhone || profile.phone}</div>
-          <div style="font-size: 9px; color: #333;">${data.storeEmail || profile.email}</div>
+          <div style="font-size: 9px; color: #000;">${data.storeEmail || profile.email}</div>
           ${profile.gstin ? `<div class="font-bold" style="font-size: 10px; margin-top: 2px;">GSTIN: ${profile.gstin}</div>` : ''}
         </div>
 
@@ -130,7 +133,7 @@ export function printThermalReceipt(data: ThermalReceiptData) {
                 <tr>
                   <td style="text-align: left; padding: 3px 2px 3px 0; vertical-align: top; word-break: break-word;">
                     <div style="font-size: 11px; font-weight: bold; line-height: 1.25;">${item.name}</div>
-                    <div style="font-size: 9px; color: #444; margin-top: 1px;">@ ${rateDisplay}</div>
+                    <div style="font-size: 9px; color: #000; margin-top: 1px;">@ ${rateDisplay}</div>
                   </td>
                   <td style="text-align: center; vertical-align: top; padding: 3px 0; font-size: 11px;">
                     ${item.qty}
