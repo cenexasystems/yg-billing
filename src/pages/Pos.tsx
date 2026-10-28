@@ -55,6 +55,15 @@ type PosItem = Product & {
   parentProductId?: string   // products.id (before synthetic override)
 }
 
+type PosCoupon = {
+  code: string
+  percentage: number
+  minOrderValue: number
+  expiryDate: string | null
+  usageLimit: number
+  usageCount: number
+}
+
 type InvoiceSnap = {
   id: string
   invoiceNo: string
@@ -171,7 +180,9 @@ export default function Pos(props: PosProps = {}) {
   const [couponInput, setCouponInput] = useState('')
   const [couponLoading, setCouponLoading] = useState(false)
   const [couponError, setCouponError] = useState('')
-  const [availableCoupons, setAvailableCoupons] = useState<{code: string}[]>([])
+  const [availableCoupons, setAvailableCoupons] = useState<PosCoupon[]>([])
+  // 'auto' = the POS picks the best eligible coupon; 'manual' = cashier typed one; 'off' = cashier removed it
+  const [couponMode, setCouponMode] = useState<'auto' | 'manual' | 'off'>('auto')
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; percentage: number; minOrderValue: number; discount?: number } | null>(null)
   const [manualDiscountType, setManualDiscountType] = useState<'flat' | 'percent'>('percent')
   const [manualDiscountValue, setManualDiscountValue] = useState('')
@@ -216,12 +227,6 @@ export default function Pos(props: PosProps = {}) {
     void fetchVariants(branch)
     if (!isSupabaseConfigured) return
 
-    supabase.from('coupons').select('code').eq('branch', branch).eq('is_active', true).order('created_at', { ascending: false }).limit(20)
-      .then(({ data, error }) => {
-        if (error) console.error('Failed to fetch coupons', error)
-        else if (data) setAvailableCoupons(data)
-      })
-
     const productChannel = supabase.channel('pos-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => void fetchProducts(branch, true))
       .subscribe()
@@ -234,6 +239,42 @@ export default function Pos(props: PosProps = {}) {
 
     return () => { void supabase.removeChannel(productChannel) }
   }, [fetchProducts, fetchVariants, branch])
+
+  // Active coupons for this branch. Re-fetched on focus and every minute so a
+  // coupon created in the dashboard reaches the billing panel without a reload.
+  useEffect(() => {
+    if (!isSupabaseConfigured) return
+    let cancelled = false
+    const load = () => {
+      supabase.from('coupons')
+        .select('code, percentage, min_order_value, expiry_date, usage_limit, usage_count')
+        .eq('branch', branch).eq('is_active', true)
+        .order('created_at', { ascending: false }).limit(50)
+        .then(({ data, error }) => {
+          if (cancelled) return
+          if (error) { console.error('Failed to fetch coupons', error); return }
+          setAvailableCoupons((data || []).map((c) => ({
+            code: String(c.code),
+            percentage: Number(c.percentage || 0),
+            minOrderValue: Number(c.min_order_value || 0),
+            expiryDate: c.expiry_date as string | null,
+            usageLimit: Number(c.usage_limit || 0),
+            usageCount: Number(c.usage_count || 0),
+          })))
+        })
+    }
+    load()
+    const onVisible = () => { if (document.visibilityState === 'visible') load() }
+    window.addEventListener('focus', load)
+    document.addEventListener('visibilitychange', onVisible)
+    const timer = window.setInterval(load, 60_000)
+    return () => {
+      cancelled = true
+      window.removeEventListener('focus', load)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.clearInterval(timer)
+    }
+  }, [branch])
 
   // ── Derived data ──────────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -272,6 +313,32 @@ export default function Pos(props: PosProps = {}) {
     : manualDiscountNumeric
 
   const discountedSubtotal = Math.max(0, subtotal - couponDiscount - manualDiscountAmount)
+
+  // Auto-apply: pick the highest-percentage coupon the current cart qualifies for.
+  useEffect(() => {
+    if (couponMode !== 'auto') return
+    if (items.length === 0) {
+      if (appliedCoupon) { setAppliedCoupon(null); setCouponInput('') }
+      return
+    }
+    const usable = availableCoupons.filter((c) =>
+      c.percentage > 0 &&
+      !isCouponExpired(c.expiryDate) &&
+      !(c.usageLimit > 0 && c.usageCount >= c.usageLimit))
+    const eligible = usable.filter((c) => subtotal >= c.minOrderValue)
+    const best = eligible.sort((a, b) => b.percentage - a.percentage)[0]
+    if (best) {
+      if (appliedCoupon?.code !== best.code) {
+        setAppliedCoupon({ code: best.code, percentage: best.percentage, minOrderValue: best.minOrderValue })
+        setCouponInput(best.code)
+        setCouponError('')
+      }
+    } else if (appliedCoupon && !usable.some((c) => c.code === appliedCoupon.code)) {
+      // The coupon was deactivated/expired/used up — drop it.
+      setAppliedCoupon(null)
+      setCouponInput('')
+    }
+  }, [couponMode, items.length, subtotal, availableCoupons, appliedCoupon])
 
   const totalGst = billGstEnabled
     ? Math.max(0, Math.round((discountedSubtotal * (settingsGstRate / 100)) * 100) / 100)
@@ -675,6 +742,7 @@ export default function Pos(props: PosProps = {}) {
     setCouponInput('')
     setAppliedCoupon(null)
     setCouponError('')
+    setCouponMode('auto')
     setManualDiscountValue('')
     setManualDiscountType('percent')
     setError('')
@@ -712,6 +780,7 @@ export default function Pos(props: PosProps = {}) {
     const code = (typeof overrideCode === 'string' ? overrideCode : couponInput).trim().toUpperCase()
     if (!code) { setCouponError('Enter a coupon code'); return }
 
+    setCouponMode('manual')
     setCouponLoading(true)
     setCouponError('')
     setAppliedCoupon(null)
@@ -759,6 +828,7 @@ export default function Pos(props: PosProps = {}) {
   }
 
   const removeCoupon = () => {
+    setCouponMode('off')
     setAppliedCoupon(null)
     setCouponInput('')
     setCouponError('')
