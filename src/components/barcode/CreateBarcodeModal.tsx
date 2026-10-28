@@ -435,7 +435,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
         height: barcodeHeightPx,
         fontSize: barcodeFontSize,
         font: 'Arial, sans-serif',
-        margin: 0,
+        margin: 4,
         textMargin: 1.5,
         displayValue: true,
       })
@@ -580,10 +580,11 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
             .barcode-box svg {
               display: block;
               margin: 0 auto;
-              max-width: 98%;
+              max-width: 88%;
               max-height: 100%;
               width: auto;
               height: auto;
+              shape-rendering: crispEdges;
             }
             .extra-line {
               font-size: ${tagFontSize};
