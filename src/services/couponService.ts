@@ -17,7 +17,8 @@ export type AppliedCoupon = {
  */
 export function isCouponExpired(expiry: string | null | undefined, now: Date = new Date()): boolean {
   if (!expiry) return false
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(expiry).trim())
+  // A date saved into the timestamp column comes back as UTC midnight ("2026-10-30T00:00:00+00:00"); treat it as that date.
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ]00:00:00(?:\.0+)?(?:Z|[+-]00(?::?00)?)?)?$/.exec(String(expiry).trim())
   const end = m
     ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 23, 59, 59, 999)
     : new Date(expiry)

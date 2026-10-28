@@ -326,14 +326,16 @@ export default function Pos(props: PosProps = {}) {
       !isCouponExpired(c.expiryDate) &&
       !(c.usageLimit > 0 && c.usageCount >= c.usageLimit))
     const eligible = usable.filter((c) => subtotal >= c.minOrderValue)
+    // No coupon reached yet: show the closest one ("add ₹X more"); it only counts once the cart qualifies.
     const best = eligible.sort((a, b) => b.percentage - a.percentage)[0]
+      ?? [...usable].sort((a, b) => a.minOrderValue - b.minOrderValue || b.percentage - a.percentage)[0]
     if (best) {
       if (appliedCoupon?.code !== best.code) {
         setAppliedCoupon({ code: best.code, percentage: best.percentage, minOrderValue: best.minOrderValue })
         setCouponInput(best.code)
         setCouponError('')
       }
-    } else if (appliedCoupon && !usable.some((c) => c.code === appliedCoupon.code)) {
+    } else if (appliedCoupon) {
       // The coupon was deactivated/expired/used up — drop it.
       setAppliedCoupon(null)
       setCouponInput('')
