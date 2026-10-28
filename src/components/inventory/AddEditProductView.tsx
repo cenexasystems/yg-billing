@@ -331,7 +331,7 @@ export const AddEditProductView: React.FC<{
           const prevStock = currentProd ? (currentProd.stock_quantity ?? currentProd.stock ?? 0) : 0
           const delta = inputStock - prevStock
 
-          const { error: updErr } = await supabase
+          const { data: updRows, error: updErr } = await supabase
             .from('products')
             .update({
               name: trimmedName,
@@ -350,8 +350,11 @@ export const AddEditProductView: React.FC<{
             })
             .eq('id', selectedProductId)
             .eq('branch', branch)
+            .select('id')
 
           if (updErr) throw updErr
+          // A blocked update returns no error and no rows; don't report success then.
+          if (!updRows || updRows.length === 0) throw new Error('Changes were not saved. Please log in again as admin and retry.')
 
           if (delta !== 0) {
             await supabase.from('inventory_movements').insert({
@@ -473,7 +476,7 @@ export const AddEditProductView: React.FC<{
           }
 
           // Update parent product
-          await supabase
+          const { data: parentRows, error: parentErr } = await supabase
             .from('products')
             .update({
               name: trimmedName,
@@ -492,6 +495,10 @@ export const AddEditProductView: React.FC<{
             })
             .eq('id', selectedProductId)
             .eq('branch', branch)
+            .select('id')
+
+          if (parentErr) throw parentErr
+          if (!parentRows || parentRows.length === 0) throw new Error('Changes were not saved. Please log in again as admin and retry.')
 
           setStatusMessage({
             type: 'success',

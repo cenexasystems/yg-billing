@@ -14,6 +14,13 @@ const PRODUCT_COLUMNS = [
   'image_url', 'image', 'has_variants', 'barcode', 'sku',
 ].join(', ')
 
+// Stock-control fields the product editor shows and saves (cost price, low-stock level, …).
+// Loaded only for a POS branch, not for the public storefront.
+const INVENTORY_COLUMNS = [
+  'purchase_price', 'low_stock_alert', 'mrp', 'gst_percent', 'opening_stock',
+  'brand', 'supplier', 'size', 'color',
+].join(', ')
+
 // `branch` omitted returns both branches combined (used by the public storefront,
 // which shows one merged catalog regardless of which POS counter stocked an item).
 export function fetchAllCategories(branch?: PosBranch) {
@@ -22,8 +29,8 @@ export function fetchAllCategories(branch?: PosBranch) {
 }
 
 export function fetchAllProducts(branch?: PosBranch) {
-  const query = supabase.from('products').select(PRODUCT_COLUMNS).order('sort_order', { ascending: true })
-  return branch ? query.eq('branch', branch) : query
+  if (!branch) return supabase.from('products').select(PRODUCT_COLUMNS).order('sort_order', { ascending: true })
+  return supabase.from('products').select(`${PRODUCT_COLUMNS}, ${INVENTORY_COLUMNS}`).order('sort_order', { ascending: true }).eq('branch', branch)
 }
 
 export async function updateItemPrice(params: {
