@@ -68,7 +68,17 @@ export const AddEditProductView: React.FC<{
     inventoryService.fetchCategories(branch).then(setCategories).catch(console.error)
   }, [fetchProducts, branch])
 
+  // The product being edited is remembered for this tab, so a page refresh reopens it.
+  const editKey = `yg_edit_product_${branch}`
+  const rememberEdit = (id: number | null) => {
+    try {
+      if (id) sessionStorage.setItem(editKey, String(id))
+      else sessionStorage.removeItem(editKey)
+    } catch { /* storage unavailable */ }
+  }
+
   const resetForm = () => {
+    rememberEdit(null)
     setSelectedProductId(null)
     setName('')
     setNameTa('')
@@ -84,7 +94,8 @@ export const AddEditProductView: React.FC<{
     setStatusMessage(null)
   }
 
-  const startEditProduct = async (p: Product) => {
+  const startEditProduct = async (p: Product, keepStatus = false) => {
+    rememberEdit(Number(p.id))
     setSelectedProductId(Number(p.id))
     setMobileView('form')
     setName(p.name || '')
@@ -109,7 +120,7 @@ export const AddEditProductView: React.FC<{
     setBarcode(p.barcode || '')
     setDescription(p.description || '')
     setHasVariants(Boolean(p.hasVariants))
-    setStatusMessage(null)
+    if (!keepStatus) setStatusMessage(null)
 
     if (p.hasVariants) {
       try {
@@ -132,6 +143,16 @@ export const AddEditProductView: React.FC<{
       setVariantRows([])
     }
   }
+
+  // After a page refresh, reopen the product that was being edited
+  useEffect(() => {
+    if (initialProductId || selectedProductId || products.length === 0) return
+    let id: string | null = null
+    try { id = sessionStorage.getItem(editKey) } catch { /* storage unavailable */ }
+    const target = id ? products.find((p) => String(p.id) === id && p.isActive !== false) : undefined
+    if (target) void startEditProduct(target)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products, categories, branch])
 
   // Auto-select product if initialProductId is provided
   useEffect(() => {
@@ -313,6 +334,7 @@ export const AddEditProductView: React.FC<{
     const alertThreshold = Number(lowStockAlert) > 0 ? Number(lowStockAlert) : 5
 
     setLoading(true)
+    let createdId: number | null = null
 
     try {
       if (selectedProductId) {
@@ -567,7 +589,7 @@ export const AddEditProductView: React.FC<{
             type: 'success',
             text: `Product "${trimmedName}" created with ${inputStock} stock units! Immediately ready in catalog & billing.`,
           })
-          resetForm()
+          createdId = Number(newProd.id)
         } else {
           // Multi-variant creation
           let totalVariantStock = 0
@@ -657,12 +679,18 @@ export const AddEditProductView: React.FC<{
             type: 'success',
             text: `Multi-variant product "${trimmedName}" created with ${totalVariantStock} total units! Immediately ready in catalog & billing.`,
           })
-          resetForm()
+          createdId = Number(newProd.id)
         }
       }
 
       await fetchProducts(branch, true)
       onStockUpdated?.()
+      // Show the saved product (with everything just stored) instead of an empty form
+      if (createdId) {
+        const created = useProductStore.getState().products.find((x) => Number(x.id) === createdId)
+        if (created) await startEditProduct(created, true)
+        else resetForm()
+      }
     } catch (err: any) {
       console.error('Save Product Error:', err)
       let msg = err.message || (err instanceof Error ? err.message : 'An error occurred while saving')
