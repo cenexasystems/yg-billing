@@ -24,7 +24,11 @@ export default function BranchHub({ onNavigate }: BranchHubProps) {
 
   useEffect(() => { void fetchSettings(branch) }, [fetchSettings, branch])
 
-  const lowStockCount = products.filter((p) => p.isActive && (Number(p.stockQuantity) || 0) <= 5).length
+  // Items typed in at billing ("Unregistered") aren't stocked, so they never count as low stock.
+  const lowStockCount = products.filter((p) =>
+    p.isActive &&
+    p.category?.trim().toLowerCase() !== 'unregistered' &&
+    (Number(p.stockQuantity) || 0) <= (Number(p.lowStockAlert) > 0 ? Number(p.lowStockAlert) : 5)).length
 
   const quickOps: { label: string; tab: TabKey; icon: React.ReactNode; primary?: boolean }[] = [
     { label: 'Open Store Dashboard & POS', tab: 'billing', icon: <ShoppingCart size={15} />, primary: true },

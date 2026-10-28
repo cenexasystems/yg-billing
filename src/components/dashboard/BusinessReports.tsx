@@ -97,6 +97,7 @@ export default function BusinessReports() {
           .select('name, category, sku, barcode, price, purchase_price, stock_quantity, is_active')
           .eq('branch', branch)
           .eq('is_active', true)
+          .or('category.is.null,category.neq.Unregistered') // billing-only items, not stocked
         return (data || []).map((p) => [
           branchLabel(branch),
           p.name,

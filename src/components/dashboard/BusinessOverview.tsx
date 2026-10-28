@@ -37,7 +37,7 @@ export default function BusinessOverview({ onNavigate }: BusinessOverviewProps) 
       const results = await Promise.all(BRANCHES.map(async (branch) => {
         const [{ data: orders }, { data: products }] = await Promise.all([
           supabase.from('orders').select('total, created_at, status, order_type').eq('branch', branch).gte('created_at', todayStart.toISOString()).limit(2000),
-          supabase.from('products').select('name, price, stock_quantity, low_stock_alert, is_active').eq('branch', branch).eq('is_active', true),
+          supabase.from('products').select('name, category, price, stock_quantity, low_stock_alert, is_active').eq('branch', branch).eq('is_active', true).or('category.is.null,category.neq.Unregistered'),
         ])
 
         // Same definition as POS Analytics: completed/paid bills, excluding website (online) requests

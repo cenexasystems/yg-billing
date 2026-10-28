@@ -36,6 +36,7 @@ export default function ConsolidatedStock({ onNavigate }: ConsolidatedStockProps
           .select('price, stock_quantity, low_stock_alert')
           .eq('branch', branch)
           .eq('is_active', true)
+          .or('category.is.null,category.neq.Unregistered') // billing-only items, not stocked
 
         const rows = products || []
         const valuation = rows.reduce((sum, p) => sum + (Number(p.price) || 0) * (Number(p.stock_quantity) || 0), 0)
