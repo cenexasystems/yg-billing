@@ -1,5 +1,5 @@
 import { BRAND_EN } from './brand'
-import { formatCurrency, formatInvoiceNo } from './retail'
+import { couponLabel, formatCurrency, formatInvoiceNo } from './retail'
 import { formatPhoneForDisplay } from './phone'
 import type { PosBranch } from '../store/store'
 import { getBranchProfile } from './branchProfile'
@@ -21,6 +21,8 @@ export interface ThermalReceiptData {
   subtotal: number
   shipping: number
   couponDiscount?: number
+  couponCode?: string | null
+  couponPercentage?: number | null
   manualDiscount?: number
   totalGst?: number
   /** GST rate in percent, when known (otherwise worked out from the amounts) */
@@ -158,7 +160,7 @@ export function printThermalReceipt(data: ThermalReceiptData) {
             ` : ''}
             ${(data.couponDiscount || 0) > 0 ? `
               <tr style="font-size: 13px; font-weight: bold;">
-                <td class="text-left">Coupon</td>
+                <td class="text-left">${couponLabel(data.couponCode, data.couponPercentage)}</td>
                 <td class="text-right">-${formatCurrency(data.couponDiscount || 0)}</td>
               </tr>
             ` : ''}

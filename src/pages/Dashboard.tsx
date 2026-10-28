@@ -88,7 +88,7 @@ type Category = { id: string | number; name_en: string; name_ta: string; is_acti
 type DashboardOrder = {
   id: string; invoice_no: string; customer_name: string; phone: string; address: string
   created_at: string; total: number; status: string; order_mode: string; order_type: string; user_id: string | null; items: unknown
-  coupon_code: string; discount_amount: number; manual_discount_amount: number; delivery_charge: number
+  coupon_code: string; coupon_percentage: number; discount_amount: number; manual_discount_amount: number; delivery_charge: number
   total_gst: number; payment_mode: string; payment_method?: string; invoice_pdf_url: string; remarks?: string; reference_number?: string
   branch?: PosBranch
 }
@@ -410,6 +410,7 @@ export default function Dashboard() {
     user_id: typeof row.user_id === 'string' ? row.user_id : null,
     items: row.items,
     coupon_code: String(row.coupon_code || ''),
+    coupon_percentage: toNumber(row.coupon_percentage, 0),
     discount_amount: toNumber(row.discount_amount, 0),
     manual_discount_amount: toNumber(row.manual_discount_amount, 0),
     delivery_charge: toNumber(row.delivery_charge, 0),
@@ -429,7 +430,7 @@ export default function Dashboard() {
       const [cRes, oRes, couponRes, expList] = await Promise.all([
         supabase.from('categories').select('id, name_en, name_ta, is_active, sort_order').eq('branch', branch).order('sort_order'),
         supabase.from('orders')
-          .select('id, invoice_no, customer_name, phone, address, created_at, total, status, order_mode, order_type, user_id, items, coupon_code, discount_amount, manual_discount_amount, delivery_charge, total_gst, gst_amount, payment_mode, payment_method, remarks, reference_number, branch')
+          .select('id, invoice_no, customer_name, phone, address, created_at, total, status, order_mode, order_type, user_id, items, coupon_code, coupon_percentage, discount_amount, manual_discount_amount, delivery_charge, total_gst, gst_amount, payment_mode, payment_method, remarks, reference_number, branch')
           .eq('branch', branch)
           .order('created_at', { ascending: false })
           .limit(1000),
@@ -992,6 +993,7 @@ export default function Dashboard() {
       })),
       subtotal,
       couponDiscount: order.discount_amount,
+      couponCode: order.coupon_code, couponPercentage: order.coupon_percentage,
       shipping: order.delivery_charge,
       total: order.total,
       branch: branch, // Branch passed through for branch-specific receipt details
@@ -1030,6 +1032,7 @@ export default function Dashboard() {
       subtotal,
       shipping: order.delivery_charge || 0,
       couponDiscount: order.discount_amount || 0,
+      couponCode: order.coupon_code, couponPercentage: order.coupon_percentage,
       manualDiscount: order.manual_discount_amount || 0,
       totalGst: order.total_gst || 0,
       total: order.total
@@ -1064,6 +1067,7 @@ export default function Dashboard() {
       subtotal: preview.subtotal,
       shipping: order.delivery_charge,
       discountAmount: order.discount_amount,
+      couponCode: order.coupon_code, couponPercentage: order.coupon_percentage,
       manualDiscountAmount: order.manual_discount_amount,
       gstAmount: order.total_gst,
       paymentMode: order.payment_mode,
@@ -1242,7 +1246,7 @@ export default function Dashboard() {
       const hasQuery = Boolean(qText || invInput || phoneInput || custInput)
 
       let q = supabase.from('orders')
-        .select('id, invoice_no, customer_name, phone, address, created_at, total, status, order_mode, order_type, items, coupon_code, discount_amount, manual_discount_amount, delivery_charge, total_gst, gst_amount, payment_mode, payment_method, remarks, reference_number, branch')
+        .select('id, invoice_no, customer_name, phone, address, created_at, total, status, order_mode, order_type, items, coupon_code, coupon_percentage, discount_amount, manual_discount_amount, delivery_charge, total_gst, gst_amount, payment_mode, payment_method, remarks, reference_number, branch')
         .neq('order_type', 'online_request')
         .eq('branch', branch)
         .order('created_at', { ascending: false })
@@ -2230,6 +2234,9 @@ export default function Dashboard() {
                             lineTotal: item.line_total,
                           })),
                           subtotal: normalizedItems.reduce((sum, item) => sum + item.line_total, 0),
+                          couponDiscount: order.discount_amount,
+                          couponCode: order.coupon_code,
+                          couponPercentage: order.coupon_percentage,
                           total: getOrderTotal(order),
                           paymentMode: order.payment_mode || order.payment_method,
                           branch: branch, // Branch passed through for branch-specific receipt details
@@ -4746,6 +4753,8 @@ export default function Dashboard() {
                     shipping={invoicePreviewOrder.delivery_charge}
                     deliveryCharge={invoicePreviewOrder.delivery_charge}
                     discountAmount={invoicePreviewOrder.discount_amount}
+                    couponCode={invoicePreviewOrder.coupon_code}
+                    couponPercentage={invoicePreviewOrder.coupon_percentage}
                     manualDiscountAmount={invoicePreviewOrder.manual_discount_amount}
                     gstAmount={invoicePreviewOrder.total_gst}
                     paymentMode={invoicePreviewOrder.payment_mode}

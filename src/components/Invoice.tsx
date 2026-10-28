@@ -1,7 +1,7 @@
 import React from 'react'
 import { BRAND_ICON } from '../lib/brand'
 import { formatPhoneForDisplay } from '../lib/phone'
-import { formatCurrency, formatQuantityValue, normalizeStructuredOrderItem, formatInvoiceNo } from '../lib/retail'
+import { couponLabel, formatCurrency, formatQuantityValue, normalizeStructuredOrderItem, formatInvoiceNo } from '../lib/retail'
 import type { PosBranch } from '../store/store'
 import { getBranchProfile } from '../lib/branchProfile'
 import { splitGst } from '../lib/gst'
@@ -38,6 +38,7 @@ export interface InvoiceProps {
   /** GST rate in percent, when known (otherwise worked out from the amounts) */
   gstRate?: number | null
   couponCode?: string
+  couponPercentage?: number | null
   total: number
   status?: string
   userId?: string
@@ -61,6 +62,7 @@ export const Invoice: React.FC<InvoiceProps> = ({
   gstAmount = 0,
   gstRate,
   couponCode,
+  couponPercentage,
   total,
   status = 'completed',
   userId,
@@ -205,7 +207,7 @@ export const Invoice: React.FC<InvoiceProps> = ({
             {discountAmount > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span style={{ fontSize: 13, color: '#B48811', fontWeight: 600 }}>
-                  Coupon{couponCode ? ` (${couponCode})` : ''}
+                  {couponLabel(couponCode, couponPercentage)}
                 </span>
                 <span style={{ fontSize: 15, fontWeight: 800, color: '#B48811', fontVariantNumeric: 'tabular-nums' }}>−{formatCurrency(discountAmount)}</span>
               </div>

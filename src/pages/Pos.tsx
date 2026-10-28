@@ -73,6 +73,7 @@ type InvoiceSnap = {
   subtotal: number
   shipping: number
   couponCode?: string
+  couponPercentage?: number
   couponDiscount: number
   manualDiscountAmount: number
   manualDiscountType: 'flat' | 'percent'
@@ -1003,6 +1004,7 @@ export default function Pos(props: PosProps = {}) {
         subtotal,
         shipping: Number(shipping || 0),
         couponCode: effectiveCouponCode,
+        couponPercentage: isValidCoupon ? appliedCoupon?.percentage : 0,
         couponDiscount,
         manualDiscountAmount,
         manualDiscountType,
@@ -1056,6 +1058,8 @@ export default function Pos(props: PosProps = {}) {
       })),
       subtotal: inv.subtotal,
       couponDiscount: inv.couponDiscount,
+      couponCode: inv.couponCode,
+      couponPercentage: inv.couponPercentage,
       manualDiscountAmount: inv.manualDiscountAmount,
       shipping: inv.shipping,
       gstAmount: inv.gstAmount,
@@ -1082,6 +1086,7 @@ export default function Pos(props: PosProps = {}) {
         gstAmount: inv.gstAmount,
         gstRate: inv.gstRate,
         couponCode: inv.couponCode,
+        couponPercentage: inv.couponPercentage,
         paymentMode: inv.paymentMode,
         total: inv.total,
       })
@@ -1106,6 +1111,8 @@ export default function Pos(props: PosProps = {}) {
       subtotal: inv.subtotal,
       shipping: inv.shipping,
       couponDiscount: inv.couponDiscount,
+      couponCode: inv.couponCode,
+      couponPercentage: inv.couponPercentage,
       manualDiscount: inv.manualDiscountAmount,
       totalGst: inv.gstAmount,
       gstRate: inv.gstRate,
@@ -1252,6 +1259,7 @@ export default function Pos(props: PosProps = {}) {
             gstAmount={invoice.gstAmount || 0}
             gstRate={invoice.gstRate}
             couponCode={invoice.couponCode}
+            couponPercentage={invoice.couponPercentage}
           />
         </div>
         <CenexaFooter />

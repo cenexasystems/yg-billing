@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
 import { BRAND_EN } from './brand'
-import { formatCurrency, formatQuantityValue, normalizeStructuredOrderItem, normalizeUnitLabel, formatInvoiceNo } from './retail'
+import { couponLabel, formatCurrency, formatQuantityValue, normalizeStructuredOrderItem, normalizeUnitLabel, formatInvoiceNo } from './retail'
 import { LOGO_BASE64_POS1, LOGO_BASE64_POS2 } from './logoBase64'
 import type { PosBranch } from '../store/store'
 import { getBranchProfile } from './branchProfile'
@@ -25,6 +25,7 @@ export type InvoicePdfData = {
   /** GST rate in percent, when known (otherwise worked out from the amounts) */
   gstRate?: number | null
   couponCode?: string | null
+  couponPercentage?: number | null
   paymentMode?: string
 }
 
@@ -157,7 +158,7 @@ export function createInvoicePdf(data: InvoicePdfData): Blob {
 
   y = Math.max(y + 6, 150)
   const rows: Array<[string, string, string, number]> = [['Subtotal', money(data.subtotal), ink, 9]]
-  if ((data.discountAmount || 0) > 0) rows.push([`Coupon${data.couponCode ? ` (${data.couponCode})` : ''}`, `-${money(data.discountAmount || 0)}`, '#D4AF37', 11])
+  if ((data.discountAmount || 0) > 0) rows.push([couponLabel(data.couponCode, data.couponPercentage), `-${money(data.discountAmount || 0)}`, '#D4AF37', 11])
   if ((data.manualDiscountAmount || 0) > 0) rows.push(['Discount', `-${money(data.manualDiscountAmount || 0)}`, '#D4AF37', 9])
   if ((data.gstAmount || 0) > 0) {
     const gst = splitGst(data.gstAmount || 0, data.subtotal - (data.discountAmount || 0) - (data.manualDiscountAmount || 0), data.gstRate)

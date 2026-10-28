@@ -57,6 +57,13 @@ const INR_CURRENCY = new Intl.NumberFormat('en-IN', {
 
 const clampTo = (value: number, min = 0) => (value < min ? min : value)
 
+/** Bill label for a coupon line, e.g. "Coupon (DIWALI, 20% off)". */
+export const couponLabel = (code?: string | null, percentage?: number | string | null) => {
+  const pct = Number(percentage) || 0
+  const parts = [String(code || '').trim(), pct > 0 ? `${Number(pct.toFixed(2))}% off` : ''].filter(Boolean)
+  return parts.length ? `Coupon (${parts.join(', ')})` : 'Coupon'
+}
+
 export const roundTo = (value: number, places = 2) => {
   const factor = 10 ** places
   return Math.round((value + Number.EPSILON) * factor) / factor

@@ -10,6 +10,7 @@ import { normalizePhone, isValidPhone, getSubscriberDigits } from '../lib/phone'
 import { PLACEHOLDER as PRODUCT_PLACEHOLDER } from '../lib/productImages'
 import {
   buildStructuredOrderItem,
+  couponLabel,
   formatCurrency,
   formatQuantityDisplay,
 } from '../lib/retail'
@@ -32,6 +33,7 @@ interface BookedOrderSnapshot {
   discountAmount: number
   total: number
   couponCode?: string
+  couponPercentage?: number
 }
 
 export default function Checkout() {
@@ -113,6 +115,8 @@ export default function Checkout() {
       })),
       subtotal: snapshot.subtotal,
       couponDiscount: snapshot.discountAmount,
+      couponCode: snapshot.couponCode,
+      couponPercentage: snapshot.couponPercentage,
       total: snapshot.total,
     }))
   }
@@ -191,6 +195,7 @@ export default function Checkout() {
         discountAmount,
         total:         finalTotal,
         couponCode:    couponValid ? appliedCoupon?.code : undefined,
+        couponPercentage: couponValid ? appliedCoupon?.percentage : undefined,
       }
 
       const waText = buildWhatsAppMessage(snapshot, itemsSnapshot)
@@ -227,6 +232,8 @@ export default function Checkout() {
         })),
         subtotal: booked.subtotal,
         couponDiscount: booked.discountAmount,
+        couponCode: booked.couponCode,
+        couponPercentage: booked.couponPercentage,
         total: booked.total,
       })
     )
@@ -250,7 +257,7 @@ export default function Checkout() {
               </div>
               {booked.discountAmount > 0 && (
                 <div className="flex justify-between text-green-700">
-                  <span>Discount ({booked.couponCode})</span>
+                  <span>{couponLabel(booked.couponCode, booked.couponPercentage)}</span>
                   <span>−{formatCurrency(booked.discountAmount)}</span>
                 </div>
               )}

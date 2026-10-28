@@ -273,6 +273,7 @@ export default function DigitalInvoice() {
         manualDiscountAmount: invoice.manual_discount_amount,
         gstAmount: invoice.total_gst || invoice.gst_amount || 0,
         couponCode: invoice.coupon_code,
+        couponPercentage: Number(invoice.coupon_percentage) || 0,
         paymentMode: invoice.payment_mode,
       })
 
@@ -341,6 +342,8 @@ export default function DigitalInvoice() {
       items,
       subtotal,
       couponDiscount: invoice.discount_amount,
+      couponCode: invoice.coupon_code,
+      couponPercentage: Number(invoice.coupon_percentage) || 0,
       manualDiscountAmount: invoice.manual_discount_amount,
       shipping: invoice.delivery_charge,
       gstAmount: invoice.total_gst || invoice.gst_amount || 0,
@@ -390,6 +393,7 @@ export default function DigitalInvoice() {
             manualDiscountAmount: invoice.manual_discount_amount,
             gstAmount: invoice.total_gst || invoice.gst_amount || 0,
             couponCode: invoice.coupon_code,
+        couponPercentage: Number(invoice.coupon_percentage) || 0,
             paymentMode: invoice.payment_mode,
           })
           await uploadInvoicePdf(file, invoice.invoice_no)
@@ -415,6 +419,8 @@ export default function DigitalInvoice() {
       subtotal,
       shipping: invoice.delivery_charge || 0,
       couponDiscount: invoice.discount_amount || 0,
+      couponCode: invoice.coupon_code,
+      couponPercentage: Number(invoice.coupon_percentage) || 0,
       manualDiscount: invoice.manual_discount_amount || 0,
       totalGst: invoice.total_gst || invoice.gst_amount || 0,
       total: invoice.total > 0 ? invoice.total : (subtotal + (invoice.delivery_charge || 0) + (invoice.total_gst || invoice.gst_amount || 0) - (invoice.discount_amount || 0) - (invoice.manual_discount_amount || 0)),
@@ -472,6 +478,7 @@ export default function DigitalInvoice() {
             manualDiscountAmount={invoice.manual_discount_amount || 0}
             gstAmount={invoice.total_gst || invoice.gst_amount || 0}
             couponCode={invoice.coupon_code}
+            couponPercentage={Number(invoice.coupon_percentage) || 0}
             total={invoice.total > 0 ? invoice.total : (subtotal + (invoice.delivery_charge || 0) + (invoice.total_gst || invoice.gst_amount || 0) - (invoice.discount_amount || 0) - (invoice.manual_discount_amount || 0))}
             status={invoice.status}
             paymentMode={invoice.payment_mode || invoice.payment_method}
