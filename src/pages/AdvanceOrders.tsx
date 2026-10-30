@@ -475,7 +475,7 @@ export default function AdvanceOrders({ onOrderCompleted, onOrderDeleted }: Adva
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Customer Name *"><input required className={inputClass} value={form.customerName} onChange={e=>setForm({...form,customerName:e.target.value})}/></Field>
             <Field label="Phone Number *"><input required className={inputClass} value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/></Field>
-            <Field label="Address"><textarea className={inputClass} value={form.address} onChange={e=>setForm({...form,address:e.target.value})}/></Field>
+            {branch !== 'pos2' && (<Field label="Address"><textarea className={inputClass} value={form.address} onChange={e=>setForm({...form,address:e.target.value})}/></Field>)}
             <Field label="Product Name *"><input required list="advance-products" className={inputClass} value={form.productName} onChange={e=>{const product=products.find(p=>p.name===e.target.value);setForm({...form,productName:e.target.value,category:product?.category||form.category})}}/><datalist id="advance-products">{products.map(p=><option key={p.id} value={p.name}/>)}</datalist></Field>
             <Field label="Category"><input className={inputClass} value={form.category} onChange={e=>setForm({...form,category:e.target.value})}/></Field>
             <Field label="Description"><textarea className={inputClass} value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/></Field>
@@ -669,7 +669,7 @@ export default function AdvanceOrders({ onOrderCompleted, onOrderDeleted }: Adva
                 ['Current Status', STATUS_LABELS[selected.status]],
                 ['Invoice Number', selected.invoice_number || 'Not generated'],
                 ['Reference No', selected.reference_number || '—'],
-              ].filter(([k]) => !(branch === 'pos2' && k === 'Reference No')).map(([k, v]) => (
+              ].filter(([k]) => !(branch === 'pos2' && (k === 'Reference No' || k === 'Address'))).map(([k, v]) => (
                 <div key={k} className="rounded-xl bg-[#F8F7F4] p-3 border border-gray-100">
                   <p className="text-[10px] font-black uppercase text-[#858C83]">{k}</p>
                   <p className="mt-1 break-words text-sm font-bold text-[#273126]">{v}</p>
