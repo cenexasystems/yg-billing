@@ -1384,6 +1384,8 @@ export default function Pos(props: PosProps = {}) {
                   className="w-full min-w-0 max-w-full box-border h-10 sm:h-11 px-3 sm:px-4 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#D4AF37] text-[13px] font-bold text-[#111111] placeholder:text-gray-400 placeholder:font-medium"
                 />
               </div>
+              {branch !== 'pos2' && (
+                <>
               <div className="min-w-0">
                 <label className="block text-[11px] md:text-[10px] font-bold text-[#374151] mb-1">Remarks (Internal)</label>
                 <input
@@ -1404,6 +1406,8 @@ export default function Pos(props: PosProps = {}) {
                   className="w-full min-w-0 max-w-full box-border h-10 sm:h-11 px-3 sm:px-4 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#D4AF37] text-[13px] font-bold text-[#111111] placeholder:text-gray-400 placeholder:font-medium"
                 />
               </div>
+                </>
+              )}
               <div className="min-w-0 md:col-span-2">
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-[11px] md:text-[10px] font-bold text-[#374151]">Billing Date (Optional)</label>
@@ -2006,8 +2010,8 @@ export default function Pos(props: PosProps = {}) {
               <label className="block"><span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-[#6B7280]">Expected delivery *</span><input required type="date" value={depositForm.expectedDeliveryDate} onChange={e => setDepositForm({...depositForm, expectedDeliveryDate:e.target.value})} className="w-full rounded-xl border px-3 py-2.5 text-sm font-bold outline-none focus:border-violet-600"/></label>
               <label className="block"><span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-[#6B7280]">Payment method *</span><select value={depositForm.paymentMethod} onChange={e => setDepositForm({...depositForm,paymentMethod:e.target.value as AdvancePaymentMethod})} className="w-full rounded-xl border px-3 py-2.5 text-sm font-bold outline-none focus:border-violet-600"><option value="cash">Cash</option><option value="upi">QR</option><option value="card">Card</option></select></label>
               <label className="block sm:col-span-2"><span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-[#6B7280]">Delivery address</span><textarea value={depositForm.address} onChange={e => setDepositForm({...depositForm,address:e.target.value})} className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-violet-600" rows={2}/></label>
-              <label className="block sm:col-span-2"><span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-[#6B7280]">Reference Number</span><input value={depositForm.referenceNumber} onChange={e => setDepositForm({...depositForm,referenceNumber:e.target.value})} className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-violet-600" placeholder="e.g. PO-001, booking ref (optional)"/></label>
-              <label className="block sm:col-span-2"><span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-[#6B7280]">Remarks</span><textarea value={depositForm.remarks} onChange={e => setDepositForm({...depositForm,remarks:e.target.value})} className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-violet-600" rows={2}/></label>
+              {branch !== 'pos2' && (<label className="block sm:col-span-2"><span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-[#6B7280]">Reference Number</span><input value={depositForm.referenceNumber} onChange={e => setDepositForm({...depositForm,referenceNumber:e.target.value})} className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-violet-600" placeholder="e.g. PO-001, booking ref (optional)"/></label>)}
+              {branch !== 'pos2' && (<label className="block sm:col-span-2"><span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-[#6B7280]">Remarks</span><textarea value={depositForm.remarks} onChange={e => setDepositForm({...depositForm,remarks:e.target.value})} className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-violet-600" rows={2}/></label>)}
             </div>
             {error && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-600">{error}</div>}
             <div className="mt-5 flex gap-3"><button type="button" onClick={() => { setDepositOpen(false); setError('') }} className="flex-1 rounded-xl border py-3 text-sm font-black">Cancel</button><button disabled={saving} className="flex-[1.5] rounded-xl bg-violet-700 py-3 text-sm font-black text-white disabled:opacity-50">{saving ? 'Saving…' : 'Confirm Deposit Order'}</button></div>

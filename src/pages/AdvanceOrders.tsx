@@ -485,8 +485,8 @@ export default function AdvanceOrders({ onOrderCompleted, onOrderDeleted }: Adva
             <Field label="Deposit Payment Method"><select className={inputClass} value={form.paymentMethod} onChange={e=>setForm({...form,paymentMethod:e.target.value as AdvancePaymentMethod})}><option value="cash">Cash</option><option value="upi">QR</option><option value="card">Card</option></select></Field>
             <Field label="Expected Delivery Date *"><input required type="date" className={inputClass} value={form.expectedDeliveryDate} onChange={e=>setForm({...form,expectedDeliveryDate:e.target.value})}/></Field>
             <Field label="Order Status"><select disabled className={inputClass} value="pending_deposit"><option value="pending_deposit">Pending Deposit</option></select></Field>
-            <div className="md:col-span-2"><Field label="Reference Number"><input className={inputClass} value={form.reference_number} onChange={e=>setForm({...form,reference_number:e.target.value})} placeholder="e.g. PO-001, booking ref (optional)"/></Field></div>
-            <div className="md:col-span-2"><Field label="Remarks"><textarea className={inputClass} value={form.remarks} onChange={e=>setForm({...form,remarks:e.target.value})} placeholder="e.g. special instructions, colour, size notes"/></Field></div>
+            {branch !== 'pos2' && (<div className="md:col-span-2"><Field label="Reference Number"><input className={inputClass} value={form.reference_number} onChange={e=>setForm({...form,reference_number:e.target.value})} placeholder="e.g. PO-001, booking ref (optional)"/></Field></div>)}
+            {branch !== 'pos2' && (<div className="md:col-span-2"><Field label="Remarks"><textarea className={inputClass} value={form.remarks} onChange={e=>setForm({...form,remarks:e.target.value})} placeholder="e.g. special instructions, colour, size notes"/></Field></div>)}
           </div>
           <div className="mt-6 flex justify-end gap-3">
             <button type="button" onClick={()=>setCreateOpen(false)} className="rounded-xl border px-5 py-2.5 font-bold cursor-pointer hover:bg-gray-50 transition">Cancel</button>
@@ -669,7 +669,7 @@ export default function AdvanceOrders({ onOrderCompleted, onOrderDeleted }: Adva
                 ['Current Status', STATUS_LABELS[selected.status]],
                 ['Invoice Number', selected.invoice_number || 'Not generated'],
                 ['Reference No', selected.reference_number || '—'],
-              ].map(([k, v]) => (
+              ].filter(([k]) => !(branch === 'pos2' && k === 'Reference No')).map(([k, v]) => (
                 <div key={k} className="rounded-xl bg-[#F8F7F4] p-3 border border-gray-100">
                   <p className="text-[10px] font-black uppercase text-[#858C83]">{k}</p>
                   <p className="mt-1 break-words text-sm font-bold text-[#273126]">{v}</p>
