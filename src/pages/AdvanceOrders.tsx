@@ -7,6 +7,7 @@ import { invoicePdfFile } from '../lib/invoicePdf'
 import { printThermalReceipt } from '../lib/thermalPrint'
 import { buildAdvanceDepositWhatsAppMessage, buildProfessionalWhatsAppMessage, publicInvoiceUrl } from '../lib/whatsappMessage'
 import { formatPhoneForDisplay, toWhatsAppUrl } from '../lib/phone'
+import { buildFireworksAdvanceMessage } from '../lib/advanceWhatsApp'
 import { advanceReceiptPdf, downloadFile, printAdvanceReceipt } from '../lib/advanceReceipt'
 import { useAdminAuthStore, useProductStore, resolveBranch } from '../store/store'
 import { getPeriodBounds } from '../lib/dateRanges'
@@ -186,7 +187,10 @@ export default function AdvanceOrders({ onOrderCompleted, onOrderDeleted }: Adva
       setOrders(current => [created, ...current]); setForm(initialForm); setCreateOpen(false); setNotice(`${created.deposit_id} created. Deposit is tracked separately and has not been added to revenue.`)
 
       // Redirect to WhatsApp with advance deposit receipt
-      const advanceMsg = buildAdvanceDepositWhatsAppMessage({
+      // Fireworks: calculation only, no links
+      const advanceMsg = created.branch === 'pos2'
+        ? await buildFireworksAdvanceMessage(created, { depositMethod: form.paymentMethod })
+        : buildAdvanceDepositWhatsAppMessage({
         customerName: created.customer_name,
         depositId: created.deposit_id,
         productName: created.product_name,
@@ -260,7 +264,8 @@ export default function AdvanceOrders({ onOrderCompleted, onOrderDeleted }: Adva
       setOrders(rows => rows.map(row => row.id === completed.id ? completed : row)); onOrderCompleted?.(completed); setPaymentOrder(null); setPaymentForm({ method: 'cash', remarks: '' }); setSplitP1Amount(''); setAppliedCoupon(null); setCouponInput(''); setCouponError(''); setManualDiscount(''); setManualDiscountType('rm'); setNotice(`${result.invoice_no} generated once. The full ${formatCurrency(completed.total_amount)} is now recognized as revenue.`)
 
       // Redirect to WhatsApp with final invoice URL + Instagram + Feedback form
-      whatsappInvoice(completed)
+      // (Fireworks: the full calculation with splits instead, no links)
+      void whatsappInvoice(completed, { balancePaid: finalAmount, balanceMethod: finalMethodStr, adjustment: manualDisc })
     } catch (err) { setError(err instanceof Error ? err.message : 'Unable to complete payment') } finally { setSaving(false) }
   }
 
@@ -268,7 +273,12 @@ export default function AdvanceOrders({ onOrderCompleted, onOrderDeleted }: Adva
   const invoiceFile = (order: AdvanceOrder) => invoicePdfFile({ invoiceNo: order.invoice_number || order.deposit_id, date: order.completed_at || new Date().toISOString(), customerName: order.customer_name, phone: order.phone, address: order.address, branch: order.branch, items: productRows(order), subtotal: order.total_amount, shipping: 0, total: order.total_amount, paymentMode: order.final_payment_method || 'Paid' })
   const printFinal = (order: AdvanceOrder) => printThermalReceipt({ invoiceNo: order.invoice_number || order.deposit_id, date: order.completed_at || new Date().toISOString(), customerName: order.customer_name, phone: order.phone, branch: order.branch, items: productRows(order).map(item => ({ name: String(item.name || 'Product'), qty: Number(item.quantity || 1), unit: String(item.unit || 'piece'), price: Number(item.base_price || 0), line_total: Number(item.line_total || 0) })), subtotal: order.total_amount, shipping: 0, total: order.total_amount, paymentMode: order.final_payment_method || 'Paid' })
   
-  const whatsappDepositReceipt = (order: AdvanceOrder) => {
+  const whatsappDepositReceipt = async (order: AdvanceOrder) => {
+    if (order.branch === 'pos2') {
+      const msg = await buildFireworksAdvanceMessage(order)
+      window.open(toWhatsAppUrl(order.phone, msg), '_blank', 'noopener,noreferrer')
+      return
+    }
     const message = buildAdvanceDepositWhatsAppMessage({
       customerName: order.customer_name,
       depositId: order.deposit_id,
@@ -282,7 +292,12 @@ export default function AdvanceOrders({ onOrderCompleted, onOrderDeleted }: Adva
     window.open(toWhatsAppUrl(order.phone, message), '_blank', 'noopener,noreferrer')
   }
 
-  const whatsappInvoice = (order: AdvanceOrder) => {
+  const whatsappInvoice = async (order: AdvanceOrder, known?: Parameters<typeof buildFireworksAdvanceMessage>[1]) => {
+    if (order.branch === 'pos2') {
+      const msg = await buildFireworksAdvanceMessage(order, known)
+      window.open(toWhatsAppUrl(order.phone, msg), '_blank', 'noopener,noreferrer')
+      return
+    }
     const invNum = order.invoice_number || order.deposit_id
     const message = buildProfessionalWhatsAppMessage({
       customerName: order.customer_name,

@@ -130,3 +130,95 @@ Your order is being prepared with utmost care. We will have everything ready on 
 
 📞 *Shop Contact:* ${profile.phone}${instagramSection}`
 }
+
+// ── Fireworks (POS 2) advance orders: calculation only, no links ──────────
+
+export type AdvanceCalculationInput = {
+  customerName?: string
+  depositId: string
+  invoiceNumber?: string | null
+  items: Array<{ name: string; qty: number; lineTotal: number }>
+  totalAmount: number
+  depositAmount: number
+  depositMethod?: string | null
+  /** Set once the balance has been paid */
+  completed: boolean
+  balancePaid?: number
+  balanceMethod?: string | null
+  adjustment?: number
+  expectedDeliveryDate?: string
+  branch?: string
+}
+
+const rupees = (n: number) => `₹${(Math.round((Number(n) || 0) * 100) / 100).toFixed(2)}`
+
+/** "upi" → "QR", "cash" → "Cash", ... */
+export const paymentMethodLabel = (method?: string | null) => {
+  const m = String(method || '').trim()
+  const key = m.toLowerCase()
+  if (key === 'upi' || key === 'qr') return 'QR'
+  if (key === 'cash') return 'Cash'
+  if (key === 'card') return 'Card'
+  return m ? m.charAt(0).toUpperCase() + m.slice(1) : ''
+}
+
+/** "Split (Cash ₹400 + QR ₹250)" → [{ label: 'Cash', amount: 400 }, { label: 'QR', amount: 250 }] */
+export const parseSplitPayment = (method?: string | null) => {
+  const inner = /split\s*\((.*)\)/i.exec(String(method || ''))?.[1]
+  if (!inner) return []
+  return inner.split('+').map((part) => {
+    const m = /^\s*(.*?)\s*₹\s*([\d.,]+)\s*$/.exec(part)
+    return m ? { label: paymentMethodLabel(m[1]), amount: Number(m[2].replace(/,/g, '')) || 0 } : null
+  }).filter((p): p is { label: string; amount: number } => !!p)
+}
+
+const paymentLines = (title: string, amount: number, method?: string | null) => {
+  const splits = parseSplitPayment(method)
+  if (splits.length) {
+    return [`${title}: ${rupees(amount)} (Split)`, ...splits.map((s) => `    • ${s.label}: ${rupees(s.amount)}`)]
+  }
+  const label = paymentMethodLabel(method)
+  return [`${title}: ${rupees(amount)}${label ? ` (${label})` : ''}`]
+}
+
+export const buildAdvanceCalculationWhatsAppMessage = (input: AdvanceCalculationInput) => {
+  const profile = getBranchProfile(input.branch)
+  const customerName = input.customerName?.trim() || 'Valued Customer'
+  const balanceDue = Math.max(0, input.totalAmount - input.depositAmount)
+  const adjustment = Math.max(0, Number(input.adjustment) || 0)
+  const balancePaid = input.completed ? Math.max(0, input.balancePaid ?? balanceDue - adjustment) : 0
+  const totalPaid = input.depositAmount + balancePaid
+  const line = '━━━━━━━━━━━━━━'
+
+  const lines: string[] = [
+    `✨ *${BRAND_EN}* ✨`,
+    input.completed ? '✅ *Advance Order — Fully Paid*' : '🧾 *Advance Order Receipt*',
+    '',
+    `Dear ${customerName},`,
+    '',
+    `📦 *Order ID:* #${input.depositId}`,
+  ]
+  if (input.completed && input.invoiceNumber) lines.push(`🧾 *Invoice No:* #${formatInvoiceNo(input.invoiceNumber)}`)
+  if (input.items.length) {
+    lines.push('', '*ITEMS:*', ...input.items.map((i) => `• ${i.name} (x${i.qty}) - ${rupees(i.lineTotal)}`))
+  }
+  lines.push('', line, `Order Total: ${rupees(input.totalAmount)}`, ...paymentLines('Advance Paid', input.depositAmount, input.depositMethod))
+
+  if (input.completed) {
+    if (adjustment > 0) lines.push(`Balance: ${rupees(balanceDue)}`, `Adjustment: -${rupees(adjustment)}`)
+    lines.push(...paymentLines('Balance Paid', balancePaid, input.balanceMethod), line,
+      `*Total Paid: ${rupees(totalPaid)}*`, `*Balance Due: ${rupees(0)}*`)
+  } else {
+    lines.push(line, `*Balance to Pay on Delivery: ${rupees(balanceDue)}*`)
+    if (input.expectedDeliveryDate) {
+      let when = input.expectedDeliveryDate
+      try {
+        when = new Date(`${input.expectedDeliveryDate}T00:00:00`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+      } catch { /* keep raw date */ }
+      lines.push(`📅 Expected Delivery: ${when}`)
+    }
+  }
+
+  lines.push('', `📞 Shop Contact: ${profile.phone}`, '', input.completed ? 'Thank you for your purchase! ✨' : 'Thank you for your order! ✨')
+  return lines.join('\n')
+}
