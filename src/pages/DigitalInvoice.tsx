@@ -349,6 +349,7 @@ export default function DigitalInvoice() {
       gstAmount: invoice.total_gst || invoice.gst_amount || 0,
       total: invoice.total,
       paymentMode: invoice.payment_mode || invoice.payment_method,
+      branch: invoice.branch,
     })
 
     const invoiceUrl = window.location.href
@@ -357,7 +358,8 @@ export default function DigitalInvoice() {
       ? `\n\n📄 View Invoice: ${invoiceUrl}\n📥 Download PDF: ${pdfUrl}`
       : `\n\n📄 View Invoice: ${invoiceUrl}`
 
-    const whatsappMessage = `${message}${linkSection}`
+    // Fireworks: never send the invoice link, only the calculation
+    const whatsappMessage = invoice.branch === 'pos2' ? message : `${message}${linkSection}`
     const waUrl = toWhatsAppUrl(invoice.phone, whatsappMessage)
 
     // Open WhatsApp synchronously in user click gesture to avoid iOS Safari popup blocking

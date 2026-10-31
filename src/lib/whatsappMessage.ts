@@ -54,6 +54,8 @@ export const publicInvoiceUrl = (invoiceNumber: string) => {
 }
 
 export const buildProfessionalWhatsAppMessage = (input: BuildWhatsAppMessageInput) => {
+  // Fireworks bills go out as the calculation only, with no invoice or website links
+  if (String(input.branch || '').toLowerCase() === 'pos2') return buildFireworksBillWhatsAppMessage(input)
   const customerName = input.customerName?.trim() || 'Valued Customer'
   const invoiceUrl = input.invoiceUrl || publicInvoiceUrl(input.invoiceNumber)
   const formattedNo = formatInvoiceNo(input.invoiceNumber)
@@ -220,5 +222,43 @@ export const buildAdvanceCalculationWhatsAppMessage = (input: AdvanceCalculation
   }
 
   lines.push('', `📞 Shop Contact: ${profile.phone}`, '', input.completed ? 'Thank you for your purchase! ✨' : 'Thank you for your order! ✨')
+  return lines.join('\n')
+}
+
+/** Fireworks (POS 2) bill: items, every charge/discount and the payment (with splits). No links. */
+export const buildFireworksBillWhatsAppMessage = (input: BuildWhatsAppMessageInput) => {
+  const profile = getBranchProfile(input.branch)
+  const customerName = input.customerName?.trim() || 'Valued Customer'
+  const line = '━━━━━━━━━━━━━━'
+  const items = input.items || []
+  const subtotal = input.subtotal ?? items.reduce((sum, i) => sum + (Number(i.lineTotal) || 0), 0)
+  const coupon = Number(input.couponDiscount) || 0
+  const manual = Number(input.manualDiscountAmount) || 0
+  const gst = Number(input.gstAmount) || 0
+  const shipping = Number(input.shipping) || 0
+
+  const lines: string[] = [
+    `✨ *${BRAND_EN}* ✨`,
+    '🧾 *Bill Details*',
+    '',
+    `Dear ${customerName},`,
+    '',
+    `📌 *Invoice No:* #${formatInvoiceNo(input.invoiceNumber)}`,
+  ]
+  if (items.length) {
+    lines.push('', '*ITEMS:*', ...items.map((i) => `• ${i.name} (x${i.qty}) - ${rupees(Number(i.lineTotal) || 0)}`))
+  }
+  lines.push('', line, `Subtotal: ${rupees(subtotal)}`)
+  if (coupon > 0) lines.push(`${couponLabel(input.couponCode, input.couponPercentage)}: -${rupees(coupon)}`)
+  if (manual > 0) lines.push(`Discount: -${rupees(manual)}`)
+  if (gst > 0) lines.push(`GST: ${rupees(gst)}`)
+  if (shipping > 0) lines.push(`Delivery: ${rupees(shipping)}`)
+  if (input.total !== undefined) lines.push(`*Total: ${rupees(Number(input.total) || 0)}*`)
+  if (input.paymentMode) {
+    lines.push(line, ...paymentLines('Paid', Number(input.total) || 0, input.paymentMode))
+  } else {
+    lines.push(line)
+  }
+  lines.push('', `📞 Shop Contact: ${profile.phone}`, '', 'Thank you, and visit us again! ✨')
   return lines.join('\n')
 }

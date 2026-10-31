@@ -48,7 +48,7 @@ import { formatCurrency, normalizeOrderMode, normalizeUnitType, toNumber, type U
 import { normalizeStructuredOrderItem, formatInvoiceNo } from '../lib/retail'
 import { Invoice } from '../components/Invoice'
 import { printThermalReceipt } from '../lib/thermalPrint'
-import { buildProfessionalWhatsAppMessage } from '../lib/whatsappMessage'
+import { buildProfessionalWhatsAppMessage, parseSplitPayment } from '../lib/whatsappMessage'
 import { invoicePdfFile } from '../lib/invoicePdf'
 import { formatPhoneForCSV, formatPhoneForDisplay } from '../lib/phone'
 // toWhatsAppUrl removed - using direct link building in handlers
@@ -270,6 +270,12 @@ export default function Dashboard() {
   const [analyticsTab, setAnalyticsTab] = useState('revenue')
 
   const [invoicePreviewOrder, setInvoicePreviewOrder] = useState<DashboardOrder | null>(null)
+  // Fireworks admin: edit a saved bill's customer details and payment mode (amounts never change)
+  type PayKind = 'cash' | 'qr' | 'card'
+  const [billEdit, setBillEdit] = useState<{
+    order: DashboardOrder; name: string; phone: string; method: PayKind | 'split'
+    p1Type: PayKind; p1Amount: string; p2Type: PayKind; saving: boolean; error: string
+  } | null>(null)
   useBodyScrollLock(Boolean(invoicePreviewOrder))
 
   // WA detail expansion
@@ -937,6 +943,53 @@ export default function Dashboard() {
       setAllUsers(prev => prev.map(p => p.id === u.id ? { ...p, role: newRole } : p))
     }
     setRoleUpdating(null)
+  }
+
+  const openBillEdit = (order: DashboardOrder) => {
+    const mode = String(order.payment_mode || order.payment_method || 'cash')
+    const toKind = (label: string): PayKind => /qr|upi/i.test(label) ? 'qr' : /card/i.test(label) ? 'card' : 'cash'
+    const splits = parseSplitPayment(mode)
+    setBillEdit({
+      order,
+      name: order.customer_name || '',
+      phone: order.phone || '',
+      method: splits.length >= 2 ? 'split' : toKind(mode),
+      p1Type: splits[0] ? toKind(splits[0].label) : 'cash',
+      p1Amount: splits[0] ? String(splits[0].amount) : '',
+      p2Type: splits[1] ? toKind(splits[1].label) : 'qr',
+      saving: false,
+      error: '',
+    })
+  }
+
+  const saveBillEdit = async () => {
+    if (!billEdit) return
+    const { order } = billEdit
+    const total = Number(getOrderTotal(order)) || 0
+    const label = (t: PayKind) => t === 'qr' ? 'QR' : t === 'card' ? 'Card' : 'Cash'
+    let paymentMode: string = billEdit.method
+    if (billEdit.method === 'split') {
+      const p1 = Number(billEdit.p1Amount) || 0
+      if (p1 <= 0 || p1 >= total) { setBillEdit({ ...billEdit, error: `Payment 1 must be more than ₹0 and less than ${formatCurrency(total)}` }); return }
+      if (billEdit.p1Type === billEdit.p2Type) { setBillEdit({ ...billEdit, error: 'Payment 1 and Payment 2 must use different methods' }); return }
+      paymentMode = `Split (${label(billEdit.p1Type)} ${formatCurrency(p1)} + ${label(billEdit.p2Type)} ${formatCurrency(Math.max(0, total - p1))})`
+    }
+    const changes = {
+      customer_name: billEdit.name.trim(),
+      phone: billEdit.phone.trim(),
+      payment_mode: paymentMode,
+      payment_method: paymentMode,
+    }
+    setBillEdit({ ...billEdit, saving: true, error: '' })
+    const { data, error } = await supabase.from('orders').update(changes).eq('id', order.id).eq('branch', 'pos2').select('id')
+    if (error || !data || data.length === 0) {
+      setBillEdit({ ...billEdit, saving: false, error: error?.message || 'Changes were not saved. Please log in again as admin and retry.' })
+      return
+    }
+    const apply = (o: DashboardOrder) => o.id === order.id ? { ...o, ...changes } : o
+    setOrders(prev => prev.map(apply))
+    setSearchResults(prev => prev.map(apply))
+    setBillEdit(null)
   }
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
@@ -3619,6 +3672,11 @@ export default function Dashboard() {
                             {normalizeStatus(o.status) === 'completed' ? l('Completed', 'முடிந்தது') : l('Pending', 'நிலுவை')}
                           </span>
                         )}
+                        {role === 'admin' && branch === 'pos2' && (
+                          <button onClick={() => openBillEdit(o)} className="h-10 w-10 sm:h-11 sm:w-11 shrink-0 rounded-xl border border-[#E5E7EB]/60 text-[#111111] transition-colors hover:bg-gray-100" title="Edit Bill">
+                            <Edit2 size={14} className="mx-auto" />
+                          </button>
+                        )}
                         {role === 'admin' && (
                           <button onClick={() => void deleteOrder(o.id, o.invoice_no)} className="h-10 w-10 sm:h-11 sm:w-11 shrink-0 rounded-xl border border-[#E5E7EB]/60 text-[#D4AF37] transition-colors hover:bg-[#D4AF37]/5" title="Delete Order">
                             <Trash2 size={14} className="mx-auto" />
@@ -3689,6 +3747,11 @@ export default function Dashboard() {
                                 <span className={`inline-flex items-center justify-center rounded-lg border px-2 py-0.5 text-[10px] font-black uppercase ${normalizeStatus(o.status) === 'completed' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
                                   {normalizeStatus(o.status) === 'completed' ? l('Completed', 'முடிந்தது') : l('Pending', 'நிலுவை')}
                                 </span>
+                              )}
+                              {role === 'admin' && branch === 'pos2' && (
+                                <button onClick={() => openBillEdit(o)} className="rounded-lg p-1 text-[#111111] transition-colors hover:bg-gray-100" title="Edit Bill">
+                                  <Edit2 size={13} />
+                                </button>
                               )}
                               {role === 'admin' && (
                                 <button onClick={() => void deleteOrder(o.id, o.invoice_no)} className="rounded-lg p-1 text-[#D4AF37] transition-colors hover:bg-[#D4AF37]/5" title="Delete Order">
@@ -4693,6 +4756,65 @@ export default function Dashboard() {
         <CenexaFooter />
       </main>
 
+
+      {billEdit && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4" onClick={() => { if (!billEdit.saving) setBillEdit(null) }}>
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-black text-[#111111]">Edit Bill {formatInvoiceNo(billEdit.order.invoice_no)}</h3>
+                <p className="mt-0.5 text-[11px] font-semibold text-gray-500">Total {formatCurrency(getOrderTotal(billEdit.order))}. Items and amounts are not changed.</p>
+              </div>
+              <button type="button" onClick={() => setBillEdit(null)} disabled={billEdit.saving} className="rounded-full p-1 text-gray-500 hover:bg-gray-100"><X size={16} /></button>
+            </div>
+            <div className="mt-4 space-y-3">
+              <label className="block">
+                <span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-gray-500">Customer Name</span>
+                <input value={billEdit.name} onChange={e => setBillEdit({ ...billEdit, name: e.target.value })} className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm font-bold outline-none focus:border-[#D4AF37]" />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-gray-500">Mobile Number (WhatsApp)</span>
+                <input value={billEdit.phone} onChange={e => setBillEdit({ ...billEdit, phone: e.target.value })} inputMode="tel" className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm font-bold outline-none focus:border-[#D4AF37]" />
+              </label>
+              <div>
+                <span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-gray-500">Payment Mode</span>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {(['cash', 'qr', 'card', 'split'] as const).map(m => (
+                    <button key={m} type="button" onClick={() => setBillEdit({ ...billEdit, method: m, error: '' })}
+                      className={`h-10 rounded-xl text-xs font-black ${billEdit.method === m ? 'bg-[#111111] text-[#D4AF37]' : 'border border-gray-200 bg-white text-gray-700'}`}>
+                      {m === 'qr' ? 'QR' : m.charAt(0).toUpperCase() + m.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {billEdit.method === 'split' && (
+                <div className="space-y-2 rounded-xl border border-gray-200 bg-[#FBFAF6] p-3">
+                  <div className="flex gap-2">
+                    <select value={billEdit.p1Type} onChange={e => setBillEdit({ ...billEdit, p1Type: e.target.value as PayKind })} className="h-9 rounded-lg border border-gray-200 px-2 text-xs font-bold">
+                      <option value="cash">Cash</option><option value="qr">QR</option><option value="card">Card</option>
+                    </select>
+                    <input value={billEdit.p1Amount} onChange={e => setBillEdit({ ...billEdit, p1Amount: e.target.value })} inputMode="decimal" placeholder="Payment 1 amount" className="h-9 flex-1 rounded-lg border border-gray-200 px-2 text-xs font-bold" />
+                  </div>
+                  <div className="flex gap-2">
+                    <select value={billEdit.p2Type} onChange={e => setBillEdit({ ...billEdit, p2Type: e.target.value as PayKind })} className="h-9 rounded-lg border border-gray-200 px-2 text-xs font-bold">
+                      <option value="cash">Cash</option><option value="qr">QR</option><option value="card">Card</option>
+                    </select>
+                    <div className="flex h-9 flex-1 items-center justify-end rounded-lg bg-gray-100 px-2 text-xs font-black text-gray-700">
+                      {formatCurrency(Math.max(0, (Number(getOrderTotal(billEdit.order)) || 0) - (Number(billEdit.p1Amount) || 0)))}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {billEdit.error && <p className="text-xs font-bold text-red-600">{billEdit.error}</p>}
+            </div>
+            <div className="mt-5 flex gap-2">
+              <button type="button" onClick={() => setBillEdit(null)} disabled={billEdit.saving} className="h-11 flex-1 rounded-xl border border-gray-300 text-sm font-bold text-gray-700">Cancel</button>
+              <button type="button" onClick={() => void saveBillEdit()} disabled={billEdit.saving} className="h-11 flex-1 rounded-xl bg-[#111111] text-sm font-black text-[#D4AF37] disabled:opacity-50">{billEdit.saving ? 'Saving...' : 'Save Changes'}</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {invoicePreviewOrder && (() => {
         const preview = getOrderWhatsAppPreview(invoicePreviewOrder)
