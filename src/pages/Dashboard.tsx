@@ -50,7 +50,9 @@ import { Invoice } from '../components/Invoice'
 import { printThermalReceipt } from '../lib/thermalPrint'
 import { buildProfessionalWhatsAppMessage, parseSplitPayment } from '../lib/whatsappMessage'
 import { invoicePdfFile } from '../lib/invoicePdf'
-import { formatPhoneForCSV, formatPhoneForDisplay } from '../lib/phone'
+import { formatPhoneForCSV, formatPhoneForDisplay, toWhatsAppUrl } from '../lib/phone'
+import { buildFireworksAdvanceMessage } from '../lib/advanceWhatsApp'
+import { findAdvanceOrderByCompletedOrderId } from '../services/advanceOrderService'
 // toWhatsAppUrl removed - using direct link building in handlers
 import { createVariant, updateVariant, deleteVariant, setDefaultVariant, type ProductVariant } from '../services/variantService'
 import { useVariantStore } from '../store/store'
@@ -1047,11 +1049,34 @@ export default function Dashboard() {
       subtotal,
       couponDiscount: order.discount_amount,
       couponCode: order.coupon_code, couponPercentage: order.coupon_percentage,
+      manualDiscountAmount: order.manual_discount_amount,
+      gstAmount: order.total_gst,
       shipping: order.delivery_charge,
       total: order.total,
+      paymentMode: order.payment_mode || order.payment_method,
       branch: branch, // Branch passed through for branch-specific receipt details
     })
     return { items, subtotal, message, fileName: `Invoice-${order.invoice_no || order.id}.pdf` }
+  }
+
+  // Order history WhatsApp button. Fireworks: open WhatsApp straight away with the
+  // bill's calculation (advance bills: deposit + balance + splits), no links.
+  const sendBillWhatsApp = async (order: DashboardOrder) => {
+    if (branch !== 'pos2') { window.open(`/invoice/${order.id}`, '_blank'); return }
+    // Open the tab inside the click so the browser doesn't block it, then point it at WhatsApp
+    const tab = window.open('', '_blank')
+    let message = ''
+    try {
+      if (normalizeOrderType(order.order_type) === 'advance_order') {
+        const adv = await findAdvanceOrderByCompletedOrderId(order.id, 'pos2')
+        if (adv) message = await buildFireworksAdvanceMessage(adv)
+      }
+    } catch { /* fall back to the plain bill message */ }
+    if (!message) message = getOrderWhatsAppPreview(order)?.message || ''
+    if (!message) { tab?.close(); alert('This bill has no items to send.'); return }
+    const url = toWhatsAppUrl(order.phone, message)
+    if (tab) tab.location.href = url
+    else window.open(url, '_blank', 'noopener,noreferrer')
   }
 
 
@@ -2350,10 +2375,10 @@ export default function Dashboard() {
                                       <div><span className="font-black text-[#374151]">{l('Name', 'பெயர்')}: </span><span className="font-bold text-[#111111]">{order.customer_name || '-'}</span></div>
                                       <div><span className="font-black text-[#374151]">{l('Phone', 'தொலைபேசி')}: </span><span className="font-bold text-[#111111]">{formatPhoneForDisplay(order.phone) || '-'}</span></div>
                                       <div className="flex-1"><span className="font-black text-[#374151]">{l('Address', 'முகவரி')}: </span><span className="text-[#111111]">{order.address || '-'}</span></div>
-                                      {Boolean(order.remarks) && (
+                                      {branch !== 'pos2' && Boolean(order.remarks) && (
                                         <div className="w-full mt-1 border-t border-blue-50 pt-2"><span className="font-black text-[#374151]">Remarks: </span><span className="font-bold text-[#111111]">{order.remarks}</span></div>
                                       )}
-                                      {Boolean(order.reference_number) && (
+                                      {branch !== 'pos2' && Boolean(order.reference_number) && (
                                         <div className="w-full mt-1 border-t border-blue-50 pt-2"><span className="font-black text-[#374151]">Ref Number: </span><span className="font-bold text-[#111111]">{order.reference_number}</span></div>
                                       )}
                                     </div>
@@ -3638,13 +3663,13 @@ export default function Dashboard() {
                           <p className="text-[#9BAB9A] uppercase text-[11px] font-black">Delivery</p>
                           <p className="font-semibold text-[#111111]">{o.delivery_charge > 0 ? formatCurrency(o.delivery_charge) : '—'}</p>
                         </div>
-                        {((o as unknown as Record<string,unknown>).reference_number as string) && (
+                        {branch !== 'pos2' && ((o as unknown as Record<string,unknown>).reference_number as string) && (
                           <div>
                             <p className="text-[#9BAB9A] uppercase text-[11px] font-black">Ref #</p>
                             <p className="font-semibold text-[#111111] break-words">{(o as unknown as Record<string,unknown>).reference_number as string}</p>
                           </div>
                         )}
-                        {((o as unknown as Record<string,unknown>).remarks as string) && (
+                        {branch !== 'pos2' && ((o as unknown as Record<string,unknown>).remarks as string) && (
                           <div className="col-span-2">
                             <p className="text-[#9BAB9A] uppercase text-[11px] font-black">Remarks</p>
                             <p className="font-semibold text-[#374151] break-words">{(o as unknown as Record<string,unknown>).remarks as string}</p>
@@ -3656,7 +3681,7 @@ export default function Dashboard() {
                           <button onClick={() => void openOrderInvoice(o, 'view')} className="inline-flex h-10 sm:min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#E5E7EB]/60 px-2 sm:px-3 text-[12px] font-black text-[#111111] transition-colors hover:bg-white" title="View Invoice">
                             <Eye size={14} /> View
                           </button>
-                          <button onClick={() => window.open(`/invoice/${o.id}`, '_blank')} className="inline-flex h-10 sm:min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-green-500 px-2 sm:px-3 text-[12px] font-black text-white transition-colors hover:bg-green-600" title="Invoice & Share">
+                          <button onClick={() => void sendBillWhatsApp(o)} className="inline-flex h-10 sm:min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-green-500 px-2 sm:px-3 text-[12px] font-black text-white transition-colors hover:bg-green-600" title="Invoice & Share">
                             <MessageCircle size={14} /> Share
                           </button>
                         </div>
@@ -3765,7 +3790,7 @@ export default function Dashboard() {
                               <button onClick={() => void openOrderInvoice(o, 'view')} className="rounded-lg p-1 text-[#111111] transition-colors hover:bg-[#F9FAFB]" title="View Invoice">
                                 <Eye size={13} />
                               </button>
-                              <button onClick={() => window.open(`/invoice/${o.id}`, '_blank')} className="rounded-lg p-1.5 text-green-600 transition-colors hover:bg-green-50" title="Invoice & Share">
+                              <button onClick={() => void sendBillWhatsApp(o)} className="rounded-lg p-1.5 text-green-600 transition-colors hover:bg-green-50" title="Invoice & Share">
                                 <MessageCircle size={14} />
                               </button>
                             </div>
@@ -3788,6 +3813,7 @@ export default function Dashboard() {
                           <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]/40">
                             <td colSpan={12} className="px-4 py-4">
                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[12px]">
+                                {branch !== 'pos2' && (<>
                                 <div>
                                   <p className="text-[10px] font-black uppercase text-[#9BAB9A] tracking-wider mb-1">Reference No</p>
                                   <p className="font-semibold text-[#111111]">{(o as unknown as Record<string,unknown>).reference_number as string || '—'}</p>
@@ -3796,14 +3822,17 @@ export default function Dashboard() {
                                   <p className="text-[10px] font-black uppercase text-[#9BAB9A] tracking-wider mb-1">Remarks</p>
                                   <p className="font-semibold text-[#374151] break-words">{(o as unknown as Record<string,unknown>).remarks as string || '—'}</p>
                                 </div>
+                                </>)}
                                 <div>
                                   <p className="text-[10px] font-black uppercase text-[#9BAB9A] tracking-wider mb-1">Customer</p>
                                   <p className="font-semibold text-[#111111]">{o.customer_name}</p>
                                 </div>
+                                {branch !== 'pos2' && (
                                 <div>
                                   <p className="text-[10px] font-black uppercase text-[#9BAB9A] tracking-wider mb-1">Address</p>
                                   <p className="font-semibold text-[#374151] break-words">{o.address || '—'}</p>
                                 </div>
+                                )}
                                 <div className="col-span-2 sm:col-span-4">
                                   <p className="text-[10px] font-black uppercase text-[#9BAB9A] tracking-wider mb-1">Payment Mode</p>
                                   {o.payment_mode ? (

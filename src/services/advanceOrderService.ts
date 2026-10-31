@@ -163,6 +163,14 @@ export async function cancelAdvanceOrderByCompletedOrderId(completedOrderId: str
   saveLocalOrders(updated)
 }
 
+/** The advance order whose final bill is this order, if any. */
+export async function findAdvanceOrderByCompletedOrderId(orderId: string, branch: PosBranch): Promise<AdvanceOrder | null> {
+  if (!isSupabaseConfigured) return null
+  const { data } = await supabase.from('advance_orders').select('*')
+    .eq('completed_order_id', orderId).eq('branch', branch).maybeSingle()
+  return data ? normalizeOrder(data as Record<string, unknown>) : null
+}
+
 export async function listAdvanceOrders(branch: PosBranch = 'pos1'): Promise<AdvanceOrder[]> {
   const cached = loadLocalOrders()
   const local = cached.filter(o => (o.branch || 'pos1') === branch)

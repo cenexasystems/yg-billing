@@ -741,7 +741,7 @@ export default function AdvanceOrders({ onOrderCompleted, onOrderDeleted }: Adva
                     <div key={event.id} className="relative pb-2 before:absolute before:-left-[21px] before:top-1.5 before:h-2.5 before:w-2.5 before:rounded-full before:bg-violet-600">
                       <p className="text-sm font-black text-gray-900">{event.label}</p>
                       <p className="text-xs text-[#81887F]">{new Date(event.created_at).toLocaleString('en-IN')}</p>
-                      {event.remarks && <p className="mt-1 text-xs text-gray-600 bg-white/70 p-2 rounded-lg border border-gray-100">{event.remarks}</p>}
+                      {event.remarks && branch !== 'pos2' && <p className="mt-1 text-xs text-gray-600 bg-white/70 p-2 rounded-lg border border-gray-100">{event.remarks}</p>}
                     </div>
                   ))
                 )}
