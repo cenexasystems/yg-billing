@@ -377,11 +377,11 @@ export default function Pos(props: PosProps = {}) {
     if (branch !== 'pos2' || !grew) return
     const list = itemsListRef.current
     if (!list) return
-    list.scrollTo({ top: 0, behavior: 'smooth' })
-    // On small screens the whole page scrolls instead of the list
-    const rect = list.getBoundingClientRect()
-    if (rect.top < 0 || rect.top > window.innerHeight * 0.6) {
-      window.scrollTo({ top: window.scrollY + rect.top - 120, behavior: 'smooth' })
+    // The newest product is the first row: make sure that row is on screen
+    const firstRow = list.querySelector(':scope > *') as HTMLElement | null
+    const rect = (firstRow || list).getBoundingClientRect()
+    if (rect.top < 80 || rect.bottom > window.innerHeight) {
+      (firstRow || list).scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
   }, [firstItemKey, branch])
 
@@ -1471,7 +1471,7 @@ export default function Pos(props: PosProps = {}) {
           </div>
 
           {/* Order Items Card */}
-          <div className="bg-white rounded-2xl border border-[#E8D399] shadow-sm flex-1 flex flex-col min-h-[400px]">
+          <div className={`bg-white rounded-2xl border border-[#E8D399] shadow-sm flex flex-col min-h-[400px] ${branch === 'pos2' ? 'flex-none' : 'flex-1'}`}>
             {/* Card Header & Barcode Scanner */}
             <div className="flex flex-col gap-3 p-4 md:p-5 border-b border-[#E8D399]">
               <div className="flex items-center justify-between">
@@ -1529,7 +1529,7 @@ export default function Pos(props: PosProps = {}) {
             </div>
 
             {/* Table Body */}
-            <div ref={itemsListRef} className="flex-1 lg:overflow-y-auto p-3 space-y-3 md:space-y-2">
+            <div ref={itemsListRef} className={`flex-1 p-3 space-y-3 md:space-y-2 ${branch === 'pos2' ? '' : 'lg:overflow-y-auto'}`}>
               {items.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full text-[#374151]/60">
                   <ShoppingBag size={40} className="mb-3 opacity-20" />

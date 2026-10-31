@@ -38,6 +38,9 @@ export interface ThermalReceiptData {
 export function printThermalReceipt(data: ThermalReceiptData) {
   try {
     const profile = getBranchProfile(data.branch)
+    // Fireworks receipts list Qty, Rate and Amount in separate columns (plain numbers, e.g. 240.00)
+    const rateColumn = data.branch === 'pos2'
+    const plain = (n: number) => (Math.round((Number(n) || 0) * 100) / 100).toFixed(2)
     const gst = splitGst(data.totalGst || 0, data.subtotal - (data.couponDiscount || 0) - (data.manualDiscount || 0), data.gstRate)
     // Create an isolated print iframe protected from third-party extension observers
     const iframe = document.createElement('iframe')
@@ -121,17 +124,34 @@ export function printThermalReceipt(data: ThermalReceiptData) {
 
         <table class="border-bottom" style="width: 100%; table-layout: fixed; border-collapse: collapse;">
           <thead>
+            ${rateColumn ? `
+            <tr style="font-size: 10px; border-bottom: 1.5px dashed #000;">
+              <th style="width: 40%; text-align: left; padding: 4px 0;">Item</th>
+              <th style="width: 10%; text-align: center; padding: 4px 0;">Qty</th>
+              <th style="width: 25%; text-align: right; padding: 4px 0;">Rate</th>
+              <th style="width: 25%; text-align: right; padding: 4px 0;">Amount</th>
+            </tr>` : `
             <tr style="font-size: 10px; border-bottom: 1.5px dashed #000;">
               <th style="width: 50%; text-align: left; padding: 4px 0;">Item Name</th>
               <th style="width: 18%; text-align: center; padding: 4px 0;">Qty</th>
               <th style="width: 32%; text-align: right; padding: 4px 0;">Amount</th>
-            </tr>
+            </tr>`}
           </thead>
           <tbody>
             ${data.items.map(item => {
               const lineTotal = item.line_total ?? (item.qty * item.price)
               const unit = item.unit && item.unit !== 'unit' && item.unit !== 'piece' ? item.unit : ''
               const rateDisplay = `${formatCurrency(item.price)}${unit ? `/${unit}` : ''}`
+              if (rateColumn) {
+                return `
+                <tr>
+                  <td style="text-align: left; padding: 3px 2px 3px 0; vertical-align: top; word-break: break-word; font-size: 11px; font-weight: bold; line-height: 1.25;">${item.name}${unit ? ` <span style="font-size: 9px; font-weight: normal;">(${unit})</span>` : ''}</td>
+                  <td style="text-align: center; vertical-align: top; padding: 3px 0; font-size: 11px;">${item.qty}</td>
+                  <td style="text-align: right; vertical-align: top; padding: 3px 0; font-size: 11px;">${plain(item.price)}</td>
+                  <td style="text-align: right; vertical-align: top; padding: 3px 0; font-size: 11px; font-weight: bold;">${plain(lineTotal)}</td>
+                </tr>
+              `
+              }
               return `
                 <tr>
                   <td style="text-align: left; padding: 3px 2px 3px 0; vertical-align: top; word-break: break-word;">
