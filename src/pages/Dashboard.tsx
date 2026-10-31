@@ -273,7 +273,7 @@ export default function Dashboard() {
   const [analyticsTab, setAnalyticsTab] = useState('revenue')
 
   const [invoicePreviewOrder, setInvoicePreviewOrder] = useState<DashboardOrder | null>(null)
-  // Fireworks admin: edit a saved bill's customer details and payment mode (amounts never change)
+  // Fireworks (admin and staff): edit a saved bill - details, payment, items, discount
 
   type PayKind = 'cash' | 'qr' | 'card'
   type EditRow = { index: number; name: string; qty: string; price: string; stocked: boolean }
@@ -1028,6 +1028,7 @@ export default function Dashboard() {
         phone: billEdit.phone,
         paymentMode,
         editItems: billEdit.editItems,
+        editedBy: role === 'admin' ? 'Admin' : 'Staff',
       })
       const changes: Partial<DashboardOrder> = {
         customer_name: billEdit.name.trim(),
@@ -3758,7 +3759,7 @@ export default function Dashboard() {
                             {normalizeStatus(o.status) === 'completed' ? l('Completed', 'முடிந்தது') : l('Pending', 'நிலுவை')}
                           </span>
                         )}
-                        {role === 'admin' && branch === 'pos2' && (
+                        {branch === 'pos2' && (
                           <button onClick={() => openBillEdit(o)} className="h-10 w-10 sm:h-11 sm:w-11 shrink-0 rounded-xl border border-[#E5E7EB]/60 text-[#111111] transition-colors hover:bg-gray-100" title="Edit Bill">
                             <Edit2 size={14} className="mx-auto" />
                           </button>
@@ -3834,7 +3835,7 @@ export default function Dashboard() {
                                   {normalizeStatus(o.status) === 'completed' ? l('Completed', 'முடிந்தது') : l('Pending', 'நிலுவை')}
                                 </span>
                               )}
-                              {role === 'admin' && branch === 'pos2' && (
+                              {branch === 'pos2' && (
                                 <button onClick={() => openBillEdit(o)} className="rounded-lg p-1 text-[#111111] transition-colors hover:bg-gray-100" title="Edit Bill">
                                   <Edit2 size={13} />
                                 </button>

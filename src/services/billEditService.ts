@@ -91,6 +91,8 @@ export async function saveEditedBill(params: {
   phone: string
   paymentMode: string
   editItems: boolean
+  /** Shown in stock history, e.g. 'Admin' or 'Staff' */
+  editedBy?: string
 }): Promise<{ items: BillLine[]; warnings: string[] }> {
   const { orderId, branch, originalItems, lines, totals } = params
   const invoiceLabel = formatInvoiceNo(params.invoiceNo)
@@ -185,7 +187,7 @@ export async function saveEditedBill(params: {
         p_new_quantity: Math.max(0, current - d.delta),
         p_reason: 'CORRECTION',
         p_note: `Bill ${invoiceLabel} edited (${d.delta > 0 ? `+${d.delta}` : d.delta} sold)`,
-        p_created_by_name: 'Admin',
+        p_created_by_name: params.editedBy || 'Admin',
       })
       if (adjErr) throw adjErr
     } catch {
