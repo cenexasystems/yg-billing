@@ -111,6 +111,8 @@ export async function saveEditedBill(params: {
     phone: params.phone.trim(),
     payment_mode: params.paymentMode,
     payment_method: params.paymentMode,
+    // The stored invoice PDF shows the old bill; clear it so print/download rebuild it
+    invoice_pdf_url: null,
   }
   if (params.editItems) {
     Object.assign(changes, {

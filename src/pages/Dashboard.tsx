@@ -1031,6 +1031,7 @@ export default function Dashboard() {
         editedBy: role === 'admin' ? 'Admin' : 'Staff',
       })
       const changes: Partial<DashboardOrder> = {
+        invoice_pdf_url: '',
         customer_name: billEdit.name.trim(),
         phone: billEdit.phone.trim(),
         payment_mode: paymentMode,
@@ -1145,7 +1146,8 @@ export default function Dashboard() {
   const handlePrintReceipt = (order: DashboardOrder) => {
     const preview = getOrderWhatsAppPreview(order)
     if (!preview) { alert('This order has no invoice details available.'); return }
-    const subtotal = order.total - (order.delivery_charge || 0) + (order.discount_amount || 0)
+    // Sum of the item lines (before coupon, discount and GST)
+    const subtotal = preview.subtotal
 
     printThermalReceipt({
       invoiceNo: order.invoice_no || order.id,
