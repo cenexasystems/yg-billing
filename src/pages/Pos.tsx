@@ -221,6 +221,33 @@ export default function Pos(props: PosProps = {}) {
     error: '',
   })
   const searchRef = useRef<HTMLInputElement>(null)
+  // Fireworks: invoice number the next bill will get (last POS 2 bill + 1)
+  const [nextInvoiceNo, setNextInvoiceNo] = useState('')
+  useEffect(() => {
+    if (branch !== 'pos2' || !isSupabaseConfigured) { setNextInvoiceNo(''); return }
+    let cancelled = false
+    const load = () => {
+      supabase.from('orders').select('invoice_no')
+        .eq('branch', 'pos2').lt('invoice_no', '10000001')
+        .order('invoice_no', { ascending: false }).limit(1)
+        .then(({ data, error }) => {
+          if (cancelled || error) return
+          const last = Number(data?.[0]?.invoice_no) || 0
+          setNextInvoiceNo(String(last + 1).padStart(8, '0'))
+        })
+    }
+    load()
+    const onVisible = () => { if (document.visibilityState === 'visible') load() }
+    window.addEventListener('focus', load)
+    document.addEventListener('visibilitychange', onVisible)
+    const timer = window.setInterval(load, 20000)
+    return () => {
+      cancelled = true
+      window.removeEventListener('focus', load)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.clearInterval(timer)
+    }
+  }, [branch, invoice?.id])
   const itemsListRef = useRef<HTMLDivElement>(null)
 
   useBodyScrollLock(depositOpen || Boolean(depositCreated) || Boolean(variantPickerProduct) || Boolean(priceEditModal.isOpen && priceEditModal.item))
@@ -1344,6 +1371,12 @@ export default function Pos(props: PosProps = {}) {
                 {branchShortLabel(branch)}
               </span>
             )}
+            {branch === 'pos2' && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white border border-[#E8D399] shadow-xs text-[11px] font-black tracking-wide text-[#111111]" title="Filled in automatically">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-gray-500">Invoice No</span>
+                {nextInvoiceNo ? formatInvoiceNo(nextInvoiceNo) : '—'}
+              </span>
+            )}
           </div>
           <p className="text-[11px] sm:text-[12px] text-gray-500 font-medium ml-3.5 mt-0.5 pr-2">Quick Invoice generator &amp; database synced checkout</p>
         </div>
@@ -1482,6 +1515,33 @@ export default function Pos(props: PosProps = {}) {
                   Order Items ({items.length})
                 </h3>
               </div>
+
+              {/* Fireworks: customer name and mobile (same fields as the Current Order panel) */}
+              {branch === 'pos2' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
+                  <div className="min-w-0">
+                    <label className="block text-[11px] md:text-[10px] font-bold text-[#374151] mb-1">Customer Name</label>
+                    <input
+                      type="text"
+                      value={customer.name}
+                      onChange={e => setCustomer({ ...customer, name: e.target.value })}
+                      placeholder="Enter name"
+                      className="w-full min-w-0 max-w-full box-border h-10 sm:h-11 px-3 sm:px-4 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#D4AF37] text-[13px] font-bold text-[#111111] placeholder:text-gray-400 placeholder:font-medium"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="block text-[11px] md:text-[10px] font-bold text-[#374151] mb-1">Mobile Number (WhatsApp)</label>
+                    <input
+                      type="text"
+                      inputMode="tel"
+                      value={customer.phone}
+                      onChange={e => setCustomer({ ...customer, phone: e.target.value })}
+                      placeholder="Enter WhatsApp number"
+                      className="w-full min-w-0 max-w-full box-border h-10 sm:h-11 px-3 sm:px-4 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#D4AF37] text-[13px] font-bold text-[#111111] placeholder:text-gray-400 placeholder:font-medium"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Barcode Scanner Bar */}
               <div className="w-full">
