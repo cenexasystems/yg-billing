@@ -8045,3 +8045,25 @@ COMMIT;
 SELECT
   (SELECT CASE WHEN is_called THEN last_value + 1 ELSE last_value END FROM public.invoice_number_seq_pos1) AS pos1_next_bill,
   (SELECT CASE WHEN is_called THEN last_value + 1 ELSE last_value END FROM public.invoice_number_seq_pos2) AS pos2_next_bill;
+
+-- ============================================================
+-- SECTION 45 / 45 -- 20261101_0046_store_google_review_url.sql
+-- ============================================================
+
+-- ===================================================================
+-- Migration 0046: Google review link per POS
+-- ===================================================================
+--
+-- Adds store_settings.google_review_url, set in Admin -> Store Settings.
+-- The Fireworks (POS 2) WhatsApp message includes it so customers can
+-- leave a Google review.
+--
+-- SAFE / IDEMPOTENT: re-running changes nothing.
+-- ===================================================================
+
+ALTER TABLE public.store_settings
+  ADD COLUMN IF NOT EXISTS google_review_url TEXT NOT NULL DEFAULT '';
+
+NOTIFY pgrst, 'reload schema';
+
+SELECT branch, google_review_url FROM public.store_settings ORDER BY branch;

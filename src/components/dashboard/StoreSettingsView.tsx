@@ -26,6 +26,7 @@ type FormState = {
   email: string
   address: string
   instagramId: string
+  googleReviewUrl: string
   gstin: string
   gstEnabled: boolean
   gstRate: string
@@ -35,7 +36,7 @@ type FormState = {
 
 const emptyForm: FormState = {
   name: '', ownerName: '', businessType: '', phoneNumber: '', shopContactNumber: '',
-  email: '', address: '', instagramId: '', gstin: '', gstEnabled: false, gstRate: '18', themeColor: '#8B1A1A', logoUrl: '',
+  email: '', address: '', instagramId: '', googleReviewUrl: '', gstin: '', gstEnabled: false, gstRate: '18', themeColor: '#8B1A1A', logoUrl: '',
 }
 
 export default function StoreSettingsView() {
@@ -85,6 +86,7 @@ export default function StoreSettingsView() {
       email: currentBranchSettings.email,
       address: currentBranchSettings.address,
       instagramId: currentBranchSettings.instagramId,
+      googleReviewUrl: currentBranchSettings.googleReviewUrl || '',
       gstin: currentBranchSettings.gstin || '',
       gstEnabled: currentBranchSettings.gstEnabled,
       gstRate: String(currentBranchSettings.gstRate ?? 18),
@@ -105,7 +107,7 @@ export default function StoreSettingsView() {
     setForm({
       name: currentBranchSettings.name, ownerName: currentBranchSettings.ownerName, businessType: currentBranchSettings.businessType,
       phoneNumber, shopContactNumber: shopContactNumber || phoneNumber, email: currentBranchSettings.email,
-      address: currentBranchSettings.address, instagramId: currentBranchSettings.instagramId, gstin: currentBranchSettings.gstin || '', gstEnabled: currentBranchSettings.gstEnabled, gstRate: String(currentBranchSettings.gstRate ?? 18), themeColor: currentBranchSettings.themeColor,
+      address: currentBranchSettings.address, instagramId: currentBranchSettings.instagramId, googleReviewUrl: currentBranchSettings.googleReviewUrl || '', gstin: currentBranchSettings.gstin || '', gstEnabled: currentBranchSettings.gstEnabled, gstRate: String(currentBranchSettings.gstRate ?? 18), themeColor: currentBranchSettings.themeColor,
       logoUrl: currentBranchSettings.logoUrl || '',
     })
     setMessage(null)
@@ -143,11 +145,22 @@ export default function StoreSettingsView() {
         logo_url: form.logoUrl || null,
         updated_at: new Date().toISOString(),
       }
-      const { data: updated, error } = await supabase
+      const reviewUrl = form.googleReviewUrl.trim()
+      let reviewColumnMissing = false
+      let { data: updated, error } = await supabase
         .from('store_settings')
-        .update(payload)
+        .update({ ...payload, google_review_url: reviewUrl })
         .eq('branch', branchToSave)
         .select('id')
+      // Database not updated yet (migration 0046): save everything else
+      if (error && /google_review_url/i.test(error.message || '')) {
+        reviewColumnMissing = true
+        ;({ data: updated, error } = await supabase
+          .from('store_settings')
+          .update(payload)
+          .eq('branch', branchToSave)
+          .select('id'))
+      }
       if (error) throw error
       if (!updated || updated.length === 0) {
         const { error: insErr } = await supabase
@@ -158,7 +171,9 @@ export default function StoreSettingsView() {
       await fetchSettings(branchToSave)
       // Apply active theme immediately so the UI reflects the change right away
       applyActiveTheme(activeBranch, role, { ...settingsByBranch, [branchToSave]: { ...settingsByBranch[branchToSave]!, themeColor: form.themeColor } }, staffBranch)
-      setMessage({ type: 'success', text: `${branchShortLabel(branchToSave)} settings & theme saved successfully.` })
+      setMessage(reviewColumnMissing && reviewUrl
+        ? { type: 'error', text: 'Settings saved, but the Google review link needs a database update first (migration 0046_store_google_review_url). Run it in Supabase, then save again.' }
+        : { type: 'success', text: `${branchShortLabel(branchToSave)} settings & theme saved successfully.` })
     } catch (err) {
       setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to save settings' })
     } finally {
@@ -402,6 +417,11 @@ export default function StoreSettingsView() {
                   <label className="block text-[10px] font-black uppercase tracking-wide text-gray-500 mb-1">Instagram ID</label>
                   <input value={form.instagramId} onChange={(e) => setForm((f) => ({ ...f, instagramId: e.target.value }))} placeholder="@yourhandle" className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-[#FBFAF6] text-sm font-bold outline-none focus:border-gray-400" />
                 </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wide text-gray-500 mb-1">Google Review Link</label>
+                <input value={form.googleReviewUrl} onChange={(e) => setForm((f) => ({ ...f, googleReviewUrl: e.target.value }))} placeholder="e.g. https://g.page/r/xxxxxxxx/review" className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-[#FBFAF6] text-sm font-bold outline-none focus:border-gray-400" />
+                <p className="mt-1 text-[10px] font-semibold text-gray-400">Sent in the WhatsApp message so customers can leave a review</p>
               </div>
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-wide text-gray-500 mb-1">GST Number (GSTIN)</label>

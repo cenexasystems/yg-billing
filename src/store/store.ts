@@ -156,6 +156,8 @@ export interface StoreSettings {
   address: string
   businessType: string
   instagramId: string
+  /** Google review link sent in the Fireworks WhatsApp message */
+  googleReviewUrl: string
   logoUrl: string | null
   themeColor: string
   websiteUrl?: string
@@ -632,6 +634,7 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
           address,
           businessType: data.business_type || '',
           instagramId: data.instagram_id || '',
+          googleReviewUrl: String(data.google_review_url || '').trim(),
           logoUrl: data.logo_url || null,
           themeColor: data.theme_color || (queryBranch === 'pos2' ? '#B8860B' : '#8B1A1A'),
           gstEnabled: Boolean(data.gst_enabled),
@@ -655,6 +658,7 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
       address: BRAND_ADDRESS,
       businessType: '',
       instagramId: '',
+      googleReviewUrl: '',
       logoUrl: null,
       themeColor: branch === 'pos2' ? '#B8860B' : '#8B1A1A',
       gstEnabled: false,

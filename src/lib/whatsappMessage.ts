@@ -196,6 +196,7 @@ export const buildFireworksWhatsAppMessage = (branch?: string) => {
     '',
   ]
   if (profile.instagramUrls) lines.push('📷 *Instagram:*', profile.instagramUrls, '')
+  if (profile.googleReviewUrl) lines.push('⭐ *Rate us on Google:*', profile.googleReviewUrl, '')
   lines.push('🌐 *Website:*', BRAND_WEBSITE, '', `📞 *WhatsApp:* ${profile.phone}`)
   return lines.join('\n')
 }
