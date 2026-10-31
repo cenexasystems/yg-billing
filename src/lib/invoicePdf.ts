@@ -87,7 +87,8 @@ export function createInvoicePdf(data: InvoicePdfData): Blob {
 
   const customerName = String(data.customerName || 'Walk-in Customer').trim()
   const customerPhone = formatPhoneForDisplay(data.phone) || '—'
-  const customerAddress = String(data.address || '').trim()
+  // Fireworks bills don't show a customer address
+  const customerAddress = data.branch === 'pos2' ? '' : String(data.address || '').trim()
   const customerNameLines = doc.splitTextToSize(customerName, 165) as string[]
   const customerAddressLines = customerAddress
     ? doc.splitTextToSize(`Address: ${customerAddress}`, 165) as string[]

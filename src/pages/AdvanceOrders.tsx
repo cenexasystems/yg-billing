@@ -604,9 +604,11 @@ export default function AdvanceOrders({ onOrderCompleted, onOrderDeleted }: Adva
                 </div>
               </div>
             )}
+            {branch !== 'pos2' && (
             <Field label="Payment Notes">
               <textarea className={inputClass} value={paymentForm.remarks} onChange={e=>setPaymentForm({...paymentForm,remarks:e.target.value})} placeholder="Notes about this payment (optional)"/>
             </Field>
+            )}
             <p className="mt-2 rounded-xl bg-amber-50 p-3 text-[11px] font-semibold text-amber-800">Confirmation marks the order Completed, creates one official invoice, and recognizes the full {formatCurrency(paymentOrder.total_amount)} as revenue.</p>
             <button disabled={saving} className="mt-5 w-full rounded-xl bg-emerald-600 py-3.5 font-black text-white shadow-lg shadow-emerald-600/30 transition-transform active:scale-95 disabled:opacity-50 cursor-pointer hover:bg-emerald-700">
               {saving?'Processing...':'Confirm Final Payment'}
@@ -677,7 +679,7 @@ export default function AdvanceOrders({ onOrderCompleted, onOrderDeleted }: Adva
               ))}
             </div>
 
-            {selected.remarks && (
+            {selected.remarks && branch !== 'pos2' && (
               <div className="rounded-xl border border-violet-200 bg-violet-50 p-3.5">
                 <p className="text-[10px] font-black uppercase text-violet-600">Remarks</p>
                 <p className="mt-1 text-sm text-[#273126] font-medium">{selected.remarks}</p>

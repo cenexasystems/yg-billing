@@ -498,16 +498,21 @@ export default function Pos(props: PosProps = {}) {
         item.variantId = scanned.variant_id || undefined
         item.variantName = scanned.variant_name || undefined
         item.parentProductId = String(scanned.product_id)
-        return [...cur, item]
+        // Fireworks: the latest scanned product shows at the top of the bill
+        return branch === 'pos2' ? [item, ...cur] : [...cur, item]
       }
 
       // Existing item: increment quantity by 1
-      return cur.map(i => {
+      const updated = cur.map(i => {
         if ((scanned.variant_id && i.variantId === scanned.variant_id) || (!scanned.variant_id && i.id === scanned.product_id)) {
           return recalc(i, i.qty + 1)
         }
         return i
       })
+      if (branch !== 'pos2') return updated
+      // Fireworks: move the re-scanned product back to the top
+      const bumped = updated.find(i => i === ex || (scanned.variant_id ? i.variantId === scanned.variant_id : i.id === scanned.product_id))
+      return bumped ? [bumped, ...updated.filter(i => i !== bumped)] : updated
     })
   }
 
@@ -1408,6 +1413,8 @@ export default function Pos(props: PosProps = {}) {
               </div>
                 </>
               )}
+              {/* Fireworks bills always use the current date & time */}
+              {branch !== 'pos2' && (
               <div className="min-w-0 md:col-span-2">
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-[11px] md:text-[10px] font-bold text-[#374151]">Billing Date (Optional)</label>
@@ -1431,6 +1438,7 @@ export default function Pos(props: PosProps = {}) {
                 />
                 <p className="mt-1 text-[10px] text-gray-400 font-medium">Leave blank to use today's date &amp; time</p>
               </div>
+              )}
             </div>
           </div>
 
