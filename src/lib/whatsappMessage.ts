@@ -85,7 +85,7 @@ ${itemsText ? `📦 *ITEMS ORDERED:*\n${itemsText}\n\n` : ''}📄 *View & Downlo
 🌐 *Visit Our Official Website:*
 👉 ${BRAND_WEBSITE}
 
-📞 *Shop Contact:* ${profile.phone}${instagramText}
+📞 *Shop Contact:* ${profile.phone}${instagramText}${profile.googleReviewUrl ? `\n\n⭐ *Rate us on Google:*\n${profile.googleReviewUrl}` : ''}
 
 Thank you, and visit us again! ✨`
 }
@@ -130,7 +130,7 @@ Your order is being prepared with utmost care. We will have everything ready on 
 🌐 *Visit Our Official Website:*
 👉 ${BRAND_WEBSITE}
 
-📞 *Shop Contact:* ${profile.phone}${instagramSection}`
+📞 *Shop Contact:* ${profile.phone}${instagramSection}${profile.googleReviewUrl ? `\n\n⭐ *Rate us on Google:*\n${profile.googleReviewUrl}` : ''}`
 }
 
 // ── Fireworks (POS 2) advance orders: calculation only, no links ──────────

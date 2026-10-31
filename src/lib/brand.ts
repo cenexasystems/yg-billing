@@ -77,6 +77,8 @@ export const BRAND_WHATSAPP_LINK = `https://wa.me/${BRAND_PRIMARY_PHONE_E164}`
 export const BRAND_EMAIL = 'ygenterprises2000@gmail.com'
 export const BRAND_ADDRESS = '#189, N.S.C. Bose Road, (Opp. Bus Depot, Hotel Sankar Cafe Building), Chennai - 600 001'
 export const BRAND_WEBSITE = 'https://ygenterprises.co.in'
+/** Google Maps listing, opened on the Reviews tab. Used by both POS unless Store Settings sets another link. */
+export const BRAND_GOOGLE_REVIEW_URL = 'https://www.google.com/maps/place/YG+Enterprises/@13.0885469,80.2831647,808m/data=!3m1!1e3!4m8!3m7!1s0x3a526fc0830152f3:0x80097ef73b5f46a6!8m2!3d13.0885469!4d80.2831647!9m1!1b1!16s%2Fg%2F11m_7b9tw7'
 export const BRAND_LOCATION_LINK = '#'
 
 // Instagram URLs shown on invoices, receipts and WhatsApp messages — same handles for both branches

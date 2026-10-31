@@ -6,6 +6,7 @@ import {
   BRAND_LOGO_POS1,
   BRAND_LOGO_POS2,
   BRAND_PRIMARY_PHONE_DISPLAY,
+  BRAND_GOOGLE_REVIEW_URL,
   getInstagramUrls,
 } from './brand'
 import { cleanIdentityField } from './identity'
@@ -49,7 +50,7 @@ export function getBranchProfile(branch?: string | null): BranchProfile {
     email: cleanIdentityField(s?.email) || BRAND_EMAIL,
     logo: s?.logoUrl || (b === 'pos2' ? BRAND_LOGO_POS2 : BRAND_LOGO_POS1),
     instagramUrls: instagramUrlsFromIds(s?.instagramId) || getInstagramUrls(b),
-    googleReviewUrl: (s?.googleReviewUrl || '').trim(),
+    googleReviewUrl: (s?.googleReviewUrl || '').trim() || BRAND_GOOGLE_REVIEW_URL,
     gstin: (s?.gstin || '').trim().toUpperCase(),
   }
 }
