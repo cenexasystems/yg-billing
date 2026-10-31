@@ -1509,39 +1509,34 @@ export default function Pos(props: PosProps = {}) {
           <div className={`bg-white rounded-2xl border border-[#E8D399] shadow-sm flex flex-col min-h-[400px] ${branch === 'pos2' ? 'flex-none' : 'flex-1'}`}>
             {/* Card Header & Barcode Scanner */}
             <div className="flex flex-col gap-3 p-4 md:p-5 border-b border-[#E8D399]">
-              <div className="flex items-center justify-between">
-                <h3 className="text-[18px] md:text-[14px] font-black text-[#7A1220] flex items-center gap-2">
+              <div className={branch === 'pos2' ? 'flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0' : 'flex items-center justify-between'}>
+                <h3 className="text-[18px] md:text-[14px] font-black text-[#7A1220] flex items-center gap-2 shrink-0">
                   <Receipt size={16} className="text-[#D4AF37]" />
                   Order Items ({items.length})
                 </h3>
-              </div>
-
-              {/* Fireworks: customer name and mobile (same fields as the Current Order panel) */}
-              {branch === 'pos2' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
-                  <div className="min-w-0">
-                    <label className="block text-[11px] md:text-[10px] font-bold text-[#374151] mb-1">Customer Name</label>
+                {/* Fireworks: customer name and mobile on the same row (same fields as the Current Order panel) */}
+                {branch === 'pos2' && (
+                  <div className="grid grid-cols-2 gap-2 flex-1 min-w-0">
                     <input
                       type="text"
                       value={customer.name}
                       onChange={e => setCustomer({ ...customer, name: e.target.value })}
-                      placeholder="Enter name"
-                      className="w-full min-w-0 max-w-full box-border h-10 sm:h-11 px-3 sm:px-4 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#D4AF37] text-[13px] font-bold text-[#111111] placeholder:text-gray-400 placeholder:font-medium"
+                      placeholder="Customer name"
+                      aria-label="Customer Name"
+                      className="w-full min-w-0 box-border h-10 px-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#D4AF37] text-[13px] font-bold text-[#111111] placeholder:text-gray-400 placeholder:font-medium"
                     />
-                  </div>
-                  <div className="min-w-0">
-                    <label className="block text-[11px] md:text-[10px] font-bold text-[#374151] mb-1">Mobile Number (WhatsApp)</label>
                     <input
                       type="text"
                       inputMode="tel"
                       value={customer.phone}
                       onChange={e => setCustomer({ ...customer, phone: e.target.value })}
-                      placeholder="Enter WhatsApp number"
-                      className="w-full min-w-0 max-w-full box-border h-10 sm:h-11 px-3 sm:px-4 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#D4AF37] text-[13px] font-bold text-[#111111] placeholder:text-gray-400 placeholder:font-medium"
+                      placeholder="Mobile (WhatsApp)"
+                      aria-label="Mobile Number (WhatsApp)"
+                      className="w-full min-w-0 box-border h-10 px-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#D4AF37] text-[13px] font-bold text-[#111111] placeholder:text-gray-400 placeholder:font-medium"
                     />
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Barcode Scanner Bar */}
               <div className="w-full">
