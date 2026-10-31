@@ -45,7 +45,7 @@ import { useAlarmStore } from '../store/alarmStore'
 import { alarmSound } from '../lib/alarmAudio'
 import { uploadProductImage } from '../lib/storage'
 import { formatCurrency, normalizeOrderMode, normalizeUnitType, toNumber, type UnitType } from '../lib/retail'
-import { normalizeStructuredOrderItem, formatInvoiceNo } from '../lib/retail'
+import { normalizeStructuredOrderItem, formatInvoiceNo, couponLabel } from '../lib/retail'
 import { Invoice } from '../components/Invoice'
 import { printThermalReceipt } from '../lib/thermalPrint'
 import { buildProfessionalWhatsAppMessage, parseSplitPayment } from '../lib/whatsappMessage'
@@ -53,6 +53,7 @@ import { invoicePdfFile } from '../lib/invoicePdf'
 import { formatPhoneForCSV, formatPhoneForDisplay, toWhatsAppUrl } from '../lib/phone'
 import { buildFireworksAdvanceMessage } from '../lib/advanceWhatsApp'
 import { findAdvanceOrderByCompletedOrderId } from '../services/advanceOrderService'
+import { billGstRate, calcBillTotals, saveEditedBill, toEditLines, type BillLine } from '../services/billEditService'
 // toWhatsAppUrl removed - using direct link building in handlers
 import { createVariant, updateVariant, deleteVariant, setDefaultVariant, type ProductVariant } from '../services/variantService'
 import { useVariantStore } from '../store/store'
@@ -273,10 +274,15 @@ export default function Dashboard() {
 
   const [invoicePreviewOrder, setInvoicePreviewOrder] = useState<DashboardOrder | null>(null)
   // Fireworks admin: edit a saved bill's customer details and payment mode (amounts never change)
+
   type PayKind = 'cash' | 'qr' | 'card'
+  type EditRow = { index: number; name: string; qty: string; price: string; stocked: boolean }
   const [billEdit, setBillEdit] = useState<{
     order: DashboardOrder; name: string; phone: string; method: PayKind | 'split'
-    p1Type: PayKind; p1Amount: string; p2Type: PayKind; saving: boolean; error: string
+    p1Type: PayKind; p1Amount: string; p2Type: PayKind
+    originalItems: BillLine[]; rows: EditRow[]; editItems: boolean
+    manualDiscount: string; couponPct: number; fixedCoupon: number; gstRate: number; delivery: number
+    saving: boolean; error: string
   } | null>(null)
   useBodyScrollLock(Boolean(invoicePreviewOrder))
 
@@ -951,6 +957,9 @@ export default function Dashboard() {
     const mode = String(order.payment_mode || order.payment_method || 'cash')
     const toKind = (label: string): PayKind => /qr|upi/i.test(label) ? 'qr' : /card/i.test(label) ? 'card' : 'cash'
     const splits = parseSplitPayment(mode)
+    const originalItems = parseOrderItems(order.items) as BillLine[]
+    const lines = toEditLines(originalItems)
+    const originalSubtotal = lines.reduce((sum, l) => sum + l.qty * l.price, 0)
     setBillEdit({
       order,
       name: order.customer_name || '',
@@ -959,39 +968,91 @@ export default function Dashboard() {
       p1Type: splits[0] ? toKind(splits[0].label) : 'cash',
       p1Amount: splits[0] ? String(splits[0].amount) : '',
       p2Type: splits[1] ? toKind(splits[1].label) : 'qr',
+      originalItems,
+      rows: lines.map(l => ({ index: l.index, name: l.name, qty: String(l.qty), price: String(l.price), stocked: l.stocked })),
+      // Advance-order bills are tied to their deposit, so only details change there
+      editItems: normalizeOrderType(order.order_type) !== 'advance_order' && originalItems.length > 0,
+      manualDiscount: String(Number(order.manual_discount_amount) || 0),
+      couponPct: Number(order.coupon_percentage) || 0,
+      fixedCoupon: Number(order.discount_amount) || 0,
+      gstRate: billGstRate(order, originalSubtotal),
+      delivery: Number(order.delivery_charge) || 0,
       saving: false,
       error: '',
     })
   }
 
+  const billEditTotals = (be: NonNullable<typeof billEdit>) => be.editItems
+    ? calcBillTotals({
+        lines: be.rows.map(r => ({ qty: Number(r.qty) || 0, price: Number(r.price) || 0 })),
+        couponPercentage: be.couponPct,
+        fixedCoupon: be.fixedCoupon,
+        manualDiscount: Number(be.manualDiscount) || 0,
+        gstRate: be.gstRate,
+        delivery: be.delivery,
+      })
+    : null
+
   const saveBillEdit = async () => {
     if (!billEdit) return
     const { order } = billEdit
-    const total = Number(getOrderTotal(order)) || 0
+    const totals = billEditTotals(billEdit)
+    const fail = (error: string) => setBillEdit({ ...billEdit, error })
+    if (billEdit.editItems) {
+      if (billEdit.rows.length === 0) return fail('A bill needs at least one item. Delete the bill instead.')
+      const bad = billEdit.rows.find(r => !(Number(r.qty) > 0) || !(Number(r.price) >= 0) || r.price.trim() === '')
+      if (bad) return fail(`Check quantity and price for "${bad.name}"`)
+    }
+    const total = totals ? totals.total : Number(getOrderTotal(order)) || 0
     const label = (t: PayKind) => t === 'qr' ? 'QR' : t === 'card' ? 'Card' : 'Cash'
     let paymentMode: string = billEdit.method
     if (billEdit.method === 'split') {
       const p1 = Number(billEdit.p1Amount) || 0
-      if (p1 <= 0 || p1 >= total) { setBillEdit({ ...billEdit, error: `Payment 1 must be more than ₹0 and less than ${formatCurrency(total)}` }); return }
-      if (billEdit.p1Type === billEdit.p2Type) { setBillEdit({ ...billEdit, error: 'Payment 1 and Payment 2 must use different methods' }); return }
+      if (p1 <= 0 || p1 >= total) return fail(`Payment 1 must be more than ₹0 and less than ${formatCurrency(total)}`)
+      if (billEdit.p1Type === billEdit.p2Type) return fail('Payment 1 and Payment 2 must use different methods')
       paymentMode = `Split (${label(billEdit.p1Type)} ${formatCurrency(p1)} + ${label(billEdit.p2Type)} ${formatCurrency(Math.max(0, total - p1))})`
     }
-    const changes = {
-      customer_name: billEdit.name.trim(),
-      phone: billEdit.phone.trim(),
-      payment_mode: paymentMode,
-      payment_method: paymentMode,
-    }
     setBillEdit({ ...billEdit, saving: true, error: '' })
-    const { data, error } = await supabase.from('orders').update(changes).eq('id', order.id).eq('branch', 'pos2').select('id')
-    if (error || !data || data.length === 0) {
-      setBillEdit({ ...billEdit, saving: false, error: error?.message || 'Changes were not saved. Please log in again as admin and retry.' })
-      return
+    try {
+      const result = await saveEditedBill({
+        orderId: order.id,
+        invoiceNo: order.invoice_no,
+        branch: 'pos2',
+        originalItems: billEdit.originalItems,
+        lines: billEdit.rows.map(r => ({
+          index: r.index, name: r.name, qty: Number(r.qty) || 0, price: Number(r.price) || 0, stocked: r.stocked,
+          productId: null, variantId: null,
+        })),
+        totals: totals || { subtotal: 0, couponDiscount: 0, manualDiscount: 0, gst: 0, delivery: 0, total },
+        customerName: billEdit.name,
+        phone: billEdit.phone,
+        paymentMode,
+        editItems: billEdit.editItems,
+      })
+      const changes: Partial<DashboardOrder> = {
+        customer_name: billEdit.name.trim(),
+        phone: billEdit.phone.trim(),
+        payment_mode: paymentMode,
+        payment_method: paymentMode,
+      }
+      if (totals) {
+        Object.assign(changes, {
+          items: result.items,
+          discount_amount: totals.couponDiscount,
+          manual_discount_amount: totals.manualDiscount,
+          total_gst: totals.gst,
+          total: totals.total,
+        })
+      }
+      const apply = (o: DashboardOrder) => o.id === order.id ? { ...o, ...changes } : o
+      setOrders(prev => prev.map(apply))
+      setSearchResults(prev => prev.map(apply))
+      setBillEdit(null)
+      if (result.warnings.length) alert(`Bill saved, but:\n\n${result.warnings.join('\n')}`)
+      if (totals) void fetchProducts(branch, true)
+    } catch (err) {
+      setBillEdit({ ...billEdit, saving: false, error: err instanceof Error ? err.message : 'Changes were not saved.' })
     }
-    const apply = (o: DashboardOrder) => o.id === order.id ? { ...o, ...changes } : o
-    setOrders(prev => prev.map(apply))
-    setSearchResults(prev => prev.map(apply))
-    setBillEdit(null)
   }
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
@@ -4786,64 +4847,122 @@ export default function Dashboard() {
       </main>
 
 
-      {billEdit && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4" onClick={() => { if (!billEdit.saving) setBillEdit(null) }}>
-          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-start justify-between gap-3">
+      {billEdit && (() => {
+        const be = billEdit
+        const totals = billEditTotals(be)
+        const total = totals ? totals.total : Number(getOrderTotal(be.order)) || 0
+        const setRow = (idx: number, patch: Partial<EditRow>) => setBillEdit({ ...be, error: '', rows: be.rows.map((r, i) => i === idx ? { ...r, ...patch } : r) })
+        return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-3 sm:p-4" onClick={() => { if (!be.saving) setBillEdit(null) }}>
+          <div className="flex max-h-[94dvh] w-full max-w-xl flex-col rounded-2xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 border-b border-gray-100 p-4 sm:p-5">
               <div>
-                <h3 className="text-base font-black text-[#111111]">Edit Bill {formatInvoiceNo(billEdit.order.invoice_no)}</h3>
-                <p className="mt-0.5 text-[11px] font-semibold text-gray-500">Total {formatCurrency(getOrderTotal(billEdit.order))}. Items and amounts are not changed.</p>
+                <h3 className="text-base font-black text-[#111111]">Edit Bill {formatInvoiceNo(be.order.invoice_no)}</h3>
+                <p className="mt-0.5 text-[11px] font-semibold text-gray-500">
+                  {be.editItems ? 'Totals and GST update as you edit. Stock is adjusted for quantity changes.' : 'Advance-order bill: only customer details and payment mode can change.'}
+                </p>
               </div>
-              <button type="button" onClick={() => setBillEdit(null)} disabled={billEdit.saving} className="rounded-full p-1 text-gray-500 hover:bg-gray-100"><X size={16} /></button>
+              <button type="button" onClick={() => setBillEdit(null)} disabled={be.saving} className="rounded-full p-1 text-gray-500 hover:bg-gray-100"><X size={16} /></button>
             </div>
-            <div className="mt-4 space-y-3">
-              <label className="block">
-                <span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-gray-500">Customer Name</span>
-                <input value={billEdit.name} onChange={e => setBillEdit({ ...billEdit, name: e.target.value })} className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm font-bold outline-none focus:border-[#D4AF37]" />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-gray-500">Mobile Number (WhatsApp)</span>
-                <input value={billEdit.phone} onChange={e => setBillEdit({ ...billEdit, phone: e.target.value })} inputMode="tel" className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm font-bold outline-none focus:border-[#D4AF37]" />
-              </label>
+
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-gray-500">Customer Name</span>
+                  <input value={be.name} onChange={e => setBillEdit({ ...be, name: e.target.value })} className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm font-bold outline-none focus:border-[#D4AF37]" />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-gray-500">Mobile Number (WhatsApp)</span>
+                  <input value={be.phone} onChange={e => setBillEdit({ ...be, phone: e.target.value })} inputMode="tel" className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm font-bold outline-none focus:border-[#D4AF37]" />
+                </label>
+              </div>
+
+              {be.editItems && (
+                <div>
+                  <span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-gray-500">Items</span>
+                  <div className="space-y-2">
+                    {be.rows.map((r, i) => (
+                      <div key={r.index} className="flex items-center gap-2 rounded-xl border border-gray-200 bg-[#FBFAF6] p-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-black text-[#111111]">{r.name}</p>
+                          <p className="text-[10px] font-semibold text-gray-500">{formatCurrency((Number(r.qty) || 0) * (Number(r.price) || 0))}</p>
+                        </div>
+                        <label className="w-16 shrink-0">
+                          <span className="block text-[9px] font-bold text-gray-500">Qty</span>
+                          <input value={r.qty} onChange={e => setRow(i, { qty: e.target.value })} inputMode="decimal" className="h-8 w-full rounded-lg border border-gray-200 px-2 text-xs font-bold" />
+                        </label>
+                        <label className="w-20 shrink-0">
+                          <span className="block text-[9px] font-bold text-gray-500">Price ₹</span>
+                          <input value={r.price} onChange={e => setRow(i, { price: e.target.value })} inputMode="decimal" className="h-8 w-full rounded-lg border border-gray-200 px-2 text-xs font-bold" />
+                        </label>
+                        <button type="button" title="Remove item" onClick={() => setBillEdit({ ...be, error: '', rows: be.rows.filter((_, k) => k !== i) })}
+                          className="mt-3 shrink-0 rounded-lg p-1.5 text-red-500 hover:bg-red-50"><Trash2 size={14} /></button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {be.editItems && totals && (
+                <div className="space-y-1.5 rounded-xl border border-gray-200 p-3 text-xs">
+                  <div className="flex justify-between"><span className="font-semibold text-gray-600">Subtotal</span><span className="font-bold">{formatCurrency(totals.subtotal)}</span></div>
+                  {totals.couponDiscount > 0 && (
+                    <div className="flex justify-between text-[#B48811]"><span className="font-semibold">{couponLabel(be.order.coupon_code, be.couponPct)}</span><span className="font-bold">-{formatCurrency(totals.couponDiscount)}</span></div>
+                  )}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-gray-600">Discount ₹</span>
+                    <input value={be.manualDiscount} onChange={e => setBillEdit({ ...be, manualDiscount: e.target.value, error: '' })} inputMode="decimal" className="h-8 w-24 rounded-lg border border-gray-200 px-2 text-right text-xs font-bold" />
+                  </div>
+                  {totals.gst > 0 && <div className="flex justify-between"><span className="font-semibold text-gray-600">GST ({be.gstRate}%)</span><span className="font-bold">{formatCurrency(totals.gst)}</span></div>}
+                  {totals.delivery > 0 && <div className="flex justify-between"><span className="font-semibold text-gray-600">Delivery</span><span className="font-bold">{formatCurrency(totals.delivery)}</span></div>}
+                  <div className="flex justify-between border-t border-gray-100 pt-1.5 text-sm"><span className="font-black">Total</span><span className="font-black">{formatCurrency(totals.total)}</span></div>
+                  {Math.abs(totals.total - (Number(getOrderTotal(be.order)) || 0)) >= 0.01 && (
+                    <p className="text-[10px] font-semibold text-gray-500">Was {formatCurrency(getOrderTotal(be.order))}</p>
+                  )}
+                </div>
+              )}
+
               <div>
                 <span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-gray-500">Payment Mode</span>
                 <div className="grid grid-cols-4 gap-1.5">
                   {(['cash', 'qr', 'card', 'split'] as const).map(m => (
-                    <button key={m} type="button" onClick={() => setBillEdit({ ...billEdit, method: m, error: '' })}
-                      className={`h-10 rounded-xl text-xs font-black ${billEdit.method === m ? 'bg-[#111111] text-[#D4AF37]' : 'border border-gray-200 bg-white text-gray-700'}`}>
+                    <button key={m} type="button" onClick={() => setBillEdit({ ...be, method: m, error: '' })}
+                      className={`h-10 rounded-xl text-xs font-black ${be.method === m ? 'bg-[#111111] text-[#D4AF37]' : 'border border-gray-200 bg-white text-gray-700'}`}>
                       {m === 'qr' ? 'QR' : m.charAt(0).toUpperCase() + m.slice(1)}
                     </button>
                   ))}
                 </div>
               </div>
-              {billEdit.method === 'split' && (
+              {be.method === 'split' && (
                 <div className="space-y-2 rounded-xl border border-gray-200 bg-[#FBFAF6] p-3">
                   <div className="flex gap-2">
-                    <select value={billEdit.p1Type} onChange={e => setBillEdit({ ...billEdit, p1Type: e.target.value as PayKind })} className="h-9 rounded-lg border border-gray-200 px-2 text-xs font-bold">
+                    <select value={be.p1Type} onChange={e => setBillEdit({ ...be, p1Type: e.target.value as PayKind })} className="h-9 rounded-lg border border-gray-200 px-2 text-xs font-bold">
                       <option value="cash">Cash</option><option value="qr">QR</option><option value="card">Card</option>
                     </select>
-                    <input value={billEdit.p1Amount} onChange={e => setBillEdit({ ...billEdit, p1Amount: e.target.value })} inputMode="decimal" placeholder="Payment 1 amount" className="h-9 flex-1 rounded-lg border border-gray-200 px-2 text-xs font-bold" />
+                    <input value={be.p1Amount} onChange={e => setBillEdit({ ...be, p1Amount: e.target.value })} inputMode="decimal" placeholder="Payment 1 amount" className="h-9 flex-1 rounded-lg border border-gray-200 px-2 text-xs font-bold" />
                   </div>
                   <div className="flex gap-2">
-                    <select value={billEdit.p2Type} onChange={e => setBillEdit({ ...billEdit, p2Type: e.target.value as PayKind })} className="h-9 rounded-lg border border-gray-200 px-2 text-xs font-bold">
+                    <select value={be.p2Type} onChange={e => setBillEdit({ ...be, p2Type: e.target.value as PayKind })} className="h-9 rounded-lg border border-gray-200 px-2 text-xs font-bold">
                       <option value="cash">Cash</option><option value="qr">QR</option><option value="card">Card</option>
                     </select>
                     <div className="flex h-9 flex-1 items-center justify-end rounded-lg bg-gray-100 px-2 text-xs font-black text-gray-700">
-                      {formatCurrency(Math.max(0, (Number(getOrderTotal(billEdit.order)) || 0) - (Number(billEdit.p1Amount) || 0)))}
+                      {formatCurrency(Math.max(0, total - (Number(be.p1Amount) || 0)))}
                     </div>
                   </div>
                 </div>
               )}
-              {billEdit.error && <p className="text-xs font-bold text-red-600">{billEdit.error}</p>}
+              {be.error && <p className="text-xs font-bold text-red-600">{be.error}</p>}
             </div>
-            <div className="mt-5 flex gap-2">
-              <button type="button" onClick={() => setBillEdit(null)} disabled={billEdit.saving} className="h-11 flex-1 rounded-xl border border-gray-300 text-sm font-bold text-gray-700">Cancel</button>
-              <button type="button" onClick={() => void saveBillEdit()} disabled={billEdit.saving} className="h-11 flex-1 rounded-xl bg-[#111111] text-sm font-black text-[#D4AF37] disabled:opacity-50">{billEdit.saving ? 'Saving...' : 'Save Changes'}</button>
+
+            <div className="flex gap-2 border-t border-gray-100 p-4 sm:p-5">
+              <button type="button" onClick={() => setBillEdit(null)} disabled={be.saving} className="h-11 flex-1 rounded-xl border border-gray-300 text-sm font-bold text-gray-700">Cancel</button>
+              <button type="button" onClick={() => void saveBillEdit()} disabled={be.saving} className="h-11 flex-1 rounded-xl bg-[#111111] text-sm font-black text-[#D4AF37] disabled:opacity-50">{be.saving ? 'Saving...' : 'Save Changes'}</button>
             </div>
           </div>
         </div>,
         document.body
-      )}
+        )
+      })()}
 
       {invoicePreviewOrder && (() => {
         const preview = getOrderWhatsAppPreview(invoicePreviewOrder)
