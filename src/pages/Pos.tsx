@@ -358,6 +358,13 @@ export default function Pos(props: PosProps = {}) {
     return m
   }, [items])
 
+  // Fireworks: a product added again (quantity +) moves back to the top of the bill
+  const toTopIfFireworks = (list: PosItem[], match: (i: PosItem) => boolean) => {
+    if (branch !== 'pos2') return list
+    const hit = list.find(match)
+    return hit ? [hit, ...list.filter(i => i !== hit)] : list
+  }
+
   // ── Cart actions ──────────────────────────────────────────────────────
   const addItem = async (product: Product, specificVariant?: ProductVariant) => {
     setError('')
@@ -386,7 +393,8 @@ export default function Pos(props: PosProps = {}) {
           item.parentProductId = String(product.id)
           return [item, ...cur]
         }
-        return cur.map(i => (i.variantId === specificVariant.id || String(i.id) === String(specificVariant.id)) ? recalc(i, i.qty + 1) : i)
+        const isIt = (i: PosItem) => i.variantId === specificVariant.id || String(i.id) === String(specificVariant.id)
+        return toTopIfFireworks(cur.map(i => isIt(i) ? recalc(i, i.qty + 1) : i), isIt)
       })
       return
     }
@@ -420,7 +428,8 @@ export default function Pos(props: PosProps = {}) {
     setItems(cur => {
       const ex = cur.find(i => String(i.id) === String(product.id))
       if (!ex) return [makePosItem(product), ...cur]
-      return cur.map(i => String(i.id) === String(product.id) ? recalc(i, i.qty + 1) : i)
+      const isIt = (i: PosItem) => String(i.id) === String(product.id)
+      return toTopIfFireworks(cur.map(i => isIt(i) ? recalc(i, i.qty + 1) : i), isIt)
     })
   }
 
@@ -450,7 +459,8 @@ export default function Pos(props: PosProps = {}) {
         item.parentProductId = String(variantPickerProduct.id)
         return [item, ...cur]
       }
-      return cur.map(i => (i.variantId === selectedVariant.id || String(i.id) === String(selectedVariant.id)) ? recalc(i, i.qty + addQty) : i)
+      const isIt = (i: PosItem) => i.variantId === selectedVariant.id || String(i.id) === String(selectedVariant.id)
+      return toTopIfFireworks(cur.map(i => isIt(i) ? recalc(i, i.qty + addQty) : i), isIt)
     })
     setVariantPickerProduct(null)
     setSelectedVariant(null)
@@ -509,10 +519,7 @@ export default function Pos(props: PosProps = {}) {
         }
         return i
       })
-      if (branch !== 'pos2') return updated
-      // Fireworks: move the re-scanned product back to the top
-      const bumped = updated.find(i => i === ex || (scanned.variant_id ? i.variantId === scanned.variant_id : i.id === scanned.product_id))
-      return bumped ? [bumped, ...updated.filter(i => i !== bumped)] : updated
+      return toTopIfFireworks(updated, i => (scanned.variant_id ? i.variantId === scanned.variant_id : i.id === scanned.product_id))
     })
   }
 
@@ -612,8 +619,9 @@ export default function Pos(props: PosProps = {}) {
       setItems((cur) => {
         const ex = cur.find((i) => i.id === product.id && (i.source === 'manual' || i.category === 'Unregistered'))
         if (!ex) return [newItem, ...cur]
-        return cur.map((i) => {
-          if (i.id === product.id && (i.source === 'manual' || i.category === 'Unregistered')) {
+        const isIt = (i: PosItem) => i.id === product.id && (i.source === 'manual' || i.category === 'Unregistered')
+        return toTopIfFireworks(cur.map((i) => {
+          if (isIt(i)) {
             const updatedQty = i.qty + input.quantity
             return {
               ...i,
@@ -624,7 +632,7 @@ export default function Pos(props: PosProps = {}) {
             }
           }
           return i
-        })
+        }), isIt)
       })
     } catch (err: unknown) {
       console.error('Failed to add unregistered item:', err)
