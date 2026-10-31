@@ -221,6 +221,7 @@ export default function Pos(props: PosProps = {}) {
     error: '',
   })
   const searchRef = useRef<HTMLInputElement>(null)
+  const itemsListRef = useRef<HTMLDivElement>(null)
 
   useBodyScrollLock(depositOpen || Boolean(depositCreated) || Boolean(variantPickerProduct) || Boolean(priceEditModal.isOpen && priceEditModal.item))
 
@@ -364,6 +365,25 @@ export default function Pos(props: PosProps = {}) {
     const hit = list.find(match)
     return hit ? [hit, ...list.filter(i => i !== hit)] : list
   }
+
+  // Fireworks: whenever a product is added or bumped to the top, scroll the bill
+  // back to its first row so the latest product is visible without scrolling.
+  const firstItemKey = items.length ? `${items[0].id}|${items[0].variantId ?? ''}|${items[0].qty}|${items.length}` : ''
+  const prevFirstItemKey = useRef(firstItemKey)
+  useEffect(() => {
+    if (prevFirstItemKey.current === firstItemKey) return
+    const grew = firstItemKey !== '' && (prevFirstItemKey.current === '' || Number(firstItemKey.split('|')[3]) >= Number(prevFirstItemKey.current.split('|')[3]))
+    prevFirstItemKey.current = firstItemKey
+    if (branch !== 'pos2' || !grew) return
+    const list = itemsListRef.current
+    if (!list) return
+    list.scrollTo({ top: 0, behavior: 'smooth' })
+    // On small screens the whole page scrolls instead of the list
+    const rect = list.getBoundingClientRect()
+    if (rect.top < 0 || rect.top > window.innerHeight * 0.6) {
+      window.scrollTo({ top: window.scrollY + rect.top - 120, behavior: 'smooth' })
+    }
+  }, [firstItemKey, branch])
 
   // ── Cart actions ──────────────────────────────────────────────────────
   const addItem = async (product: Product, specificVariant?: ProductVariant) => {
@@ -1509,7 +1529,7 @@ export default function Pos(props: PosProps = {}) {
             </div>
 
             {/* Table Body */}
-            <div className="flex-1 lg:overflow-y-auto p-3 space-y-3 md:space-y-2">
+            <div ref={itemsListRef} className="flex-1 lg:overflow-y-auto p-3 space-y-3 md:space-y-2">
               {items.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full text-[#374151]/60">
                   <ShoppingBag size={40} className="mb-3 opacity-20" />
