@@ -1390,7 +1390,8 @@ export default function Pos(props: PosProps = {}) {
         {/* LEFT COLUMN (approx 68%) */}
         <div className="flex-[2.1] flex flex-col gap-4 sm:gap-6 min-w-0 max-w-full lg:overflow-y-auto lg:pb-4">
 
-          {/* Customer Details Card */}
+          {/* Customer Details Card (Fireworks enters these in the Current Order panel) */}
+          {branch !== 'pos2' && (
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3.5 sm:p-4 md:p-5 shrink-0 min-w-0 max-w-full">
             <h3 className="text-[14px] sm:text-[15px] font-black text-[#111111] flex items-center gap-2 mb-3 sm:mb-4">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-[#D4AF37]"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
@@ -1417,7 +1418,7 @@ export default function Pos(props: PosProps = {}) {
                   className="w-full min-w-0 max-w-full box-border h-10 sm:h-11 px-3 sm:px-4 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#D4AF37] text-[13px] font-bold text-[#111111] placeholder:text-gray-400 placeholder:font-medium"
                 />
               </div>
-              {branch !== 'pos2' && (
+              {(
                 <>
               <div className="min-w-0">
                 <label className="block text-[11px] md:text-[10px] font-bold text-[#374151] mb-1">Remarks (Internal)</label>
@@ -1442,7 +1443,7 @@ export default function Pos(props: PosProps = {}) {
                 </>
               )}
               {/* Fireworks bills always use the current date & time */}
-              {branch !== 'pos2' && (
+              {(
               <div className="min-w-0 md:col-span-2">
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-[11px] md:text-[10px] font-bold text-[#374151]">Billing Date (Optional)</label>
@@ -1469,6 +1470,7 @@ export default function Pos(props: PosProps = {}) {
               )}
             </div>
           </div>
+          )}
 
           {/* Order Items Card */}
           <div className={`bg-white rounded-2xl border border-[#E8D399] shadow-sm flex flex-col min-h-[400px] ${branch === 'pos2' ? 'flex-none' : 'flex-1'}`}>
