@@ -3784,7 +3784,7 @@ export default function Dashboard() {
                 <table className="w-full text-left text-[13px]">
                   <thead className="bg-[#F9FAFB] text-[10px] uppercase tracking-wider text-[#374151]">
                     <tr>
-                      {['Invoice No', 'Customer Name', 'Phone', 'Bill Type', 'Coupon', 'Discount', 'Delivery', 'Total', 'Date', 'Status', 'Actions', 'Details'].map(h => (
+                      {['Invoice No', 'Customer Name', 'Phone', 'Bill Type', 'Coupon', 'Discount', 'Delivery', 'Total', 'Date', 'Status', 'Actions', 'Details'].filter(h => !(branch === 'pos2' && h === 'Details')).map(h => (
                         <th key={h} className="px-2 py-3 font-black text-center">{h}</th>
                       ))}
                     </tr>
@@ -3859,6 +3859,8 @@ export default function Dashboard() {
                               </button>
                             </div>
                           </td>
+                          {/* Fireworks: no Details dropdown (it only repeated the customer and payment mode) */}
+                          {branch !== 'pos2' && (
                           <td className="px-2 py-3 text-center">
                             <button
                               onClick={() => setHistoryExpandedId(historyExpandedId === o.id ? null : o.id)}
@@ -3872,12 +3874,13 @@ export default function Dashboard() {
                               <ChevronDown size={13} className={`transition-transform ${historyExpandedId === o.id ? 'rotate-180' : ''}`} />
                             </button>
                           </td>
+                          )}
                         </tr>
-                        {historyExpandedId === o.id && (
+                        {branch !== 'pos2' && historyExpandedId === o.id && (
                           <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]/40">
                             <td colSpan={12} className="px-4 py-4">
                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[12px]">
-                                {branch !== 'pos2' && (<>
+                                {(<>
                                 <div>
                                   <p className="text-[10px] font-black uppercase text-[#9BAB9A] tracking-wider mb-1">Reference No</p>
                                   <p className="font-semibold text-[#111111]">{(o as unknown as Record<string,unknown>).reference_number as string || '—'}</p>
@@ -3891,7 +3894,7 @@ export default function Dashboard() {
                                   <p className="text-[10px] font-black uppercase text-[#9BAB9A] tracking-wider mb-1">Customer</p>
                                   <p className="font-semibold text-[#111111]">{o.customer_name}</p>
                                 </div>
-                                {branch !== 'pos2' && (
+                                {(
                                 <div>
                                   <p className="text-[10px] font-black uppercase text-[#9BAB9A] tracking-wider mb-1">Address</p>
                                   <p className="font-semibold text-[#374151] break-words">{o.address || '—'}</p>
@@ -4872,11 +4875,11 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="block">
                   <span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-gray-500">Customer Name</span>
-                  <input value={be.name} onChange={e => setBillEdit({ ...be, name: e.target.value })} className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm font-bold outline-none focus:border-[#D4AF37]" />
+                  <input value={be.name} onChange={e => setBillEdit({ ...be, name: e.target.value })} className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm font-bold outline-none focus:border-[#7A1220]" />
                 </label>
                 <label className="block">
                   <span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-gray-500">Mobile Number (WhatsApp)</span>
-                  <input value={be.phone} onChange={e => setBillEdit({ ...be, phone: e.target.value })} inputMode="tel" className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm font-bold outline-none focus:border-[#D4AF37]" />
+                  <input value={be.phone} onChange={e => setBillEdit({ ...be, phone: e.target.value })} inputMode="tel" className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm font-bold outline-none focus:border-[#7A1220]" />
                 </label>
               </div>
 
@@ -4928,10 +4931,10 @@ export default function Dashboard() {
               <div>
                 <span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-gray-500">Payment Mode</span>
                 <div className="grid grid-cols-4 gap-1.5">
-                  {(['cash', 'qr', 'card', 'split'] as const).map(m => (
+                  {(['card', 'cash', 'qr', 'split'] as const).map(m => (
                     <button key={m} type="button" onClick={() => setBillEdit({ ...be, method: m, error: '' })}
-                      className={`h-10 rounded-xl text-xs font-black ${be.method === m ? 'bg-[#111111] text-[#D4AF37]' : 'border border-gray-200 bg-white text-gray-700'}`}>
-                      {m === 'qr' ? 'QR' : m.charAt(0).toUpperCase() + m.slice(1)}
+                      className={`h-10 rounded-xl text-xs font-black ${be.method === m ? 'bg-[#7A1220] text-white' : 'border border-gray-200 bg-white text-gray-700'}`}>
+                      {m.toUpperCase()}
                     </button>
                   ))}
                 </div>
@@ -4959,7 +4962,7 @@ export default function Dashboard() {
 
             <div className="flex gap-2 border-t border-gray-100 p-4 sm:p-5">
               <button type="button" onClick={() => setBillEdit(null)} disabled={be.saving} className="h-11 flex-1 rounded-xl border border-gray-300 text-sm font-bold text-gray-700">Cancel</button>
-              <button type="button" onClick={() => void saveBillEdit()} disabled={be.saving} className="h-11 flex-1 rounded-xl bg-[#111111] text-sm font-black text-[#D4AF37] disabled:opacity-50">{be.saving ? 'Saving...' : 'Save Changes'}</button>
+              <button type="button" onClick={() => void saveBillEdit()} disabled={be.saving} className="h-11 flex-1 rounded-xl bg-[#7A1220] text-sm font-black text-white disabled:opacity-50">{be.saving ? 'Saving...' : 'Save Changes'}</button>
             </div>
           </div>
         </div>,
