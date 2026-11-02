@@ -80,6 +80,10 @@ export const BRAND_WEBSITE = 'https://ygenterprises.co.in'
 /** Google Maps listing, opened on the Reviews tab. Used by both POS unless Store Settings sets another link. */
 export const BRAND_GOOGLE_REVIEW_URL = 'https://www.google.com/maps/place/YG+Enterprises/@13.0885469,80.2831647,808m/data=!3m1!1e3!4m8!3m7!1s0x3a526fc0830152f3:0x80097ef73b5f46a6!8m2!3d13.0885469!4d80.2831647!9m1!1b1!16s%2Fg%2F11m_7b9tw7'
 export const BRAND_LOCATION_LINK = '#'
+/** POS 1 opens Google's "write a review" form directly. */
+export const BRAND_GOOGLE_REVIEW_URL_POS1 = 'https://search.google.com/local/writereview?placeid=ChIJ81IBg8BvUjoRpkZfO_d-CYA'
+export const getGoogleReviewUrl = (branch?: string | null) =>
+  branch === 'pos2' ? BRAND_GOOGLE_REVIEW_URL : BRAND_GOOGLE_REVIEW_URL_POS1
 
 // Instagram URLs shown on invoices, receipts and WhatsApp messages — same handles for both branches
 export function getInstagramUrls(_branch?: string): string {
