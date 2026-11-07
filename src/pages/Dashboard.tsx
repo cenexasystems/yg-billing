@@ -301,6 +301,10 @@ export default function Dashboard() {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [searchResults, setSearchResults] = useState<DashboardOrder[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
+  // Order History shows 100 bills at a time; "Show more" reveals the next 100 (and loads the full history on demand)
+  const HISTORY_PAGE_SIZE = 100
+  const [historyVisible, setHistoryVisible] = useState(HISTORY_PAGE_SIZE)
+  const [historyAllLoaded, setHistoryAllLoaded] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
       return window.localStorage.getItem('dashboard-sidebar-collapsed') === '1'
@@ -459,7 +463,8 @@ export default function Dashboard() {
       const mappedOrders = (oRes.data || []).map(r => toDashboardOrder(r as Record<string, unknown>))
       setCats((cRes.data || []) as Category[])
       setOrders(mappedOrders)
-      setSearchResults(mappedOrders.filter(o => normalizeOrderType(o.order_type) !== 'online_request').slice(0, 100))
+      setSearchResults(mappedOrders.filter(o => normalizeOrderType(o.order_type) !== 'online_request'))
+      setHistoryAllLoaded(mappedOrders.length < 1000)
       setCoupons((couponRes.data || []) as DashboardCoupon[])
       setExpenses(expList || [])
 
@@ -1363,6 +1368,7 @@ export default function Dashboard() {
     setBillTypeFilter('all')
     setPaymentMethodFilter('all')
     setShowAdvancedFilters(false)
+    setHistoryVisible(HISTORY_PAGE_SIZE)
     void loadData()
   }
 
@@ -1380,6 +1386,7 @@ export default function Dashboard() {
   const runSearch = async (e?: FormEvent) => {
     e?.preventDefault()
     setSearchLoading(true)
+    setHistoryVisible(HISTORY_PAGE_SIZE)
     try {
       const qText = historyQuickSearch.trim()
       const invInput = search.invoiceNo.trim()
@@ -1392,7 +1399,6 @@ export default function Dashboard() {
         .neq('order_type', 'online_request')
         .eq('branch', branch)
         .order('created_at', { ascending: false })
-        .limit(hasQuery ? 1000 : 500)
 
       if (qText) {
         const digitsOnly = qText.replace(/\D/g, '')
@@ -1444,10 +1450,18 @@ export default function Dashboard() {
       else if (billTypeFilter === 'offline') q = q.eq('order_type', 'pos_sale').eq('order_mode', 'offline')
       else if (billTypeFilter === 'online')  q = q.eq('order_type', 'pos_sale').eq('order_mode', 'online')
 
-      const { data, error } = await q
-      if (error) throw error
+      // Page through every matching bill (the API returns at most 1000 rows per request)
+      const PAGE = 1000
+      let rows: unknown[] = []
+      for (let from = 0; from < 100000; from += PAGE) {
+        const { data: page, error: pageError } = await q.range(from, from + PAGE - 1)
+        if (pageError) throw pageError
+        rows = rows.concat(page || [])
+        if (!page || page.length < PAGE) break
+      }
+      setHistoryAllLoaded(true)
 
-      let results = (data || []).map(r => toDashboardOrder(r as Record<string, unknown>))
+      let results = rows.map(r => toDashboardOrder(r as Record<string, unknown>))
 
       // Client-side match filter to handle formatted invoice numbers (e.g. INV0000013 vs PB-20260716-000013)
       const matchOrder = (o: DashboardOrder) => {
@@ -3677,7 +3691,7 @@ export default function Dashboard() {
                 )}
               </div>
               <div className="space-y-3 md:hidden">
-                {filteredSearchResults.slice(0, 50).map(o => {
+                {filteredSearchResults.slice(0, historyVisible).map(o => {
                   const isAdv = normalizeOrderType(o.order_type) === 'advance_order'
                   const billTypeLabel = normalizeOrderType(o.order_type) === 'manual_sale'
                     ? 'MANUAL'
@@ -3790,7 +3804,7 @@ export default function Dashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E5E7EB]/30 bg-white">
-                    {filteredSearchResults.slice(0, 50).map(o => {
+                    {filteredSearchResults.slice(0, historyVisible).map(o => {
                       const isAdv = normalizeOrderType(o.order_type) === 'advance_order'
                       const billTypeLabel = normalizeOrderType(o.order_type) === 'manual_sale'
                         ? 'MANUAL'
@@ -3931,6 +3945,21 @@ export default function Dashboard() {
                   </tbody>
                 </table>
               </div>
+              {(filteredSearchResults.length > historyVisible || !historyAllLoaded) && filteredSearchResults.length > 0 && (
+                <div className="flex justify-center pt-3">
+                  <button
+                    type="button"
+                    disabled={searchLoading}
+                    onClick={() => {
+                      if (historyVisible + HISTORY_PAGE_SIZE >= filteredSearchResults.length && !historyAllLoaded) void runSearch()
+                      setHistoryVisible(v => v + HISTORY_PAGE_SIZE)
+                    }}
+                    className="px-5 py-2 rounded-xl border-2 border-[#E8D399] bg-white text-[12px] font-black text-[#7A1220] hover:bg-[#FBFAF6] disabled:opacity-50 cursor-pointer"
+                  >
+                    {searchLoading ? l('Loading...', 'ஏற்றுகிறது...') : `${l('Show more', 'மேலும் காட்டு')} (${Math.max(0, filteredSearchResults.length - historyVisible)}${historyAllLoaded ? '' : '+'} ${l('remaining', 'மீதம்')})`}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
