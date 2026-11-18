@@ -148,7 +148,7 @@ export default function AdminLogin() {
                       key={key}
                       type="button"
                       onClick={() => { setBranch(key); setError('') }}
-                      className={`flex min-w-0 flex-col items-center justify-start gap-1.5 rounded-xl border-2 px-2 py-3 text-center transition-colors cursor-pointer ${
+                      className={`flex min-w-0 items-center gap-2 rounded-xl border-2 px-2.5 py-2 text-left transition-colors cursor-pointer ${
                         branch === key
                           ? key === 'pos1'
                             ? 'border-posOne bg-posOne-light text-posOne-dark'
@@ -158,13 +158,10 @@ export default function AdminLogin() {
                           : 'border-[#E8D399] bg-[#FBFAF6] text-[#6B7280]'
                       }`}
                     >
-                      <span className="w-10 h-10 shrink-0 rounded-lg bg-white border border-black/5 p-1 flex items-center justify-center overflow-hidden">
+                      <span className="w-7 h-7 shrink-0 rounded-md bg-white border border-black/5 p-0.5 flex items-center justify-center overflow-hidden">
                         <img src={branchLogo(key)} alt="" className="w-full h-full object-contain" />
                       </span>
-                      <span className="flex min-w-0 flex-col items-center">
-                        <p className="text-[11px] font-black leading-tight">{label}</p>
-                        <p className="mt-0.5 text-[9px] font-semibold leading-tight opacity-80">{BRAND_EN}</p>
-                      </span>
+                      <span className="min-w-0 text-[11px] font-black leading-tight">{label}</span>
                     </button>
                   ))}
                 </div>

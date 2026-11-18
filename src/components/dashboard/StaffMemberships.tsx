@@ -14,8 +14,8 @@ type RosterEntry = {
 
 function buildRoster(): RosterEntry[] {
   const adminId = String(import.meta.env.VITE_ADMIN_ID || import.meta.env.VITE_PORTAL_ID || 'admin').trim()
-  const pos1Id = String(import.meta.env.VITE_POS1_STAFF_ID || import.meta.env.VITE_STAFF_ID || 'staff').trim()
-  const pos2Id = String(import.meta.env.VITE_POS2_STAFF_ID || '').trim()
+  const pos1Id = String(import.meta.env.VITE_POS1_STAFF_ID || import.meta.env.VITE_STAFF_ID || 'staff1').trim()
+  const pos2Id = String(import.meta.env.VITE_POS2_STAFF_ID || 'staff2').trim()
   const pos3Id = String(import.meta.env.VITE_POS3_STAFF_ID || 'staff3').trim()
 
   const roster: RosterEntry[] = [
