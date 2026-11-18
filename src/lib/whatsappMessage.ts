@@ -184,7 +184,7 @@ const paymentLines = (title: string, amount: number, method?: string | null) => 
 }
 
 /**
- * Fireworks (POS 2) WhatsApp message: shop name, Instagram, website, a thank-you
+ * Fireworks (POS 2) and Christmas (POS 3) WhatsApp message: shop name, Instagram, website, a thank-you
  * line and the shop's WhatsApp number only. No bill or payment details, no invoice link.
  */
 export const buildFireworksWhatsAppMessage = (branch?: string) => {
@@ -192,7 +192,9 @@ export const buildFireworksWhatsAppMessage = (branch?: string) => {
   const lines = [
     `✨ *${profile.name || BRAND_EN}* ✨`,
     '',
-    `Thank you for shopping with us! 🎆 We hope you have a safe and happy celebration. Visit us again!`,
+    branch === 'pos3'
+      ? `Thank you for shopping with us! 🎄 Wishing you a merry and joyful Christmas. Visit us again!`
+      : `Thank you for shopping with us! 🎆 We hope you have a safe and happy celebration. Visit us again!`,
     '',
   ]
   if (profile.instagramUrls) lines.push('📷 *Instagram:*', profile.instagramUrls, '')

@@ -53,8 +53,8 @@ export const BRAND_FAVICON = '/yg-favicon.png'
 // get their own marks wherever the UI is showing one specific branch.
 export const BRAND_LOGO_POS1 = '/yg-logo-pos1.png'
 export const BRAND_LOGO_POS2 = '/yg-logo-pos2.png'
-// Christmas POS (POS 3) uses the main YG mark until its own logo is uploaded in Store Settings
-export const BRAND_LOGO_POS3 = '/yg-logo.png'
+// Christmas POS (POS 3): the Santa-hat YG logo (a Store Settings logo still overrides it)
+export const BRAND_LOGO_POS3 = '/yg-logo-pos3.png'
 export const BRAND_PRODUCTION_DOMAIN = 'https://cen-gen-pos.vercel.app'
 
 // Owner / Personal contact

@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
 import { BRAND_EN } from './brand'
 import { couponLabel, formatCurrency, formatQuantityValue, normalizeStructuredOrderItem, normalizeUnitLabel, formatInvoiceNo } from './retail'
-import { LOGO_BASE64_POS1, LOGO_BASE64_POS2 } from './logoBase64'
+import { LOGO_BASE64_POS1, LOGO_BASE64_POS2, LOGO_BASE64_POS3, LOGO_BASE64_POS3_ASPECT } from './logoBase64'
 import { usesFireworksLayout, type PosBranch } from '../store/store'
 import { getBranchProfile } from './branchProfile'
 import { formatPhoneForDisplay } from './phone'
@@ -61,7 +61,13 @@ export function createInvoicePdf(data: InvoicePdfData): Blob {
   y += 10
 
   try {
-    doc.addImage(data.branch === 'pos2' ? LOGO_BASE64_POS2 : LOGO_BASE64_POS1, 'PNG', left, y, 30, 30)
+    if (data.branch === 'pos3') {
+      // wide logo: fit it inside the same 30 mm box, centred, without stretching
+      const logoH = 30 / LOGO_BASE64_POS3_ASPECT
+      doc.addImage(LOGO_BASE64_POS3, 'PNG', left, y + (30 - logoH) / 2, 30, logoH)
+    } else {
+      doc.addImage(data.branch === 'pos2' ? LOGO_BASE64_POS2 : LOGO_BASE64_POS1, 'PNG', left, y, 30, 30)
+    }
   } catch {
     doc.setTextColor(primaryColor)
     doc.setFontSize(16)
