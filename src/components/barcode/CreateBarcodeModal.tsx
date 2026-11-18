@@ -457,8 +457,8 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
             <div class="barcode-box">
               ${svgMarkup}
             </div>
-            ${line3 ? `<div class="extra-line">${line3}</div>` : ''}
-            ${line4 ? `<div class="extra-line">${line4}</div>` : ''}
+            ${line3 ? `<div class="extra-line${dualPrice ? ' price-line' : ''}">${line3}</div>` : ''}
+            ${line4 ? `<div class="extra-line${dualPrice ? ' price-line' : ''}">${line4}</div>` : ''}
             <div class="footer">
               <span>${item.line2 ? `<span class="tag">${esc(item.line2)}</span>` : `<span class="tag">${BRAND_EN}</span>`}</span>
               ${settings.showSalePrice && !dualPrice ? `<span class="price">₹${item.price}</span>` : ''}
@@ -599,6 +599,15 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
               max-width: 98%;
               line-height: 1.1;
               flex-shrink: 0;
+            }
+            .price-line {
+              width: 100%;
+              max-width: 100%;
+              text-align: center;
+              font-size: ${isSmall ? '6.5pt' : isLarge ? '9pt' : '7.5pt'};
+              font-weight: 900;
+              color: #000;
+              line-height: 1.15;
             }
             .footer {
               width: 100%;
@@ -1125,8 +1134,8 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
                           {/* Extra line */}
                           {line4 && (
                             <span
-                              className="text-gray-500 truncate max-w-full leading-none"
-                              style={{ fontSize: `${Math.max(6.5, Math.round(previewHeightPx * 0.065))}px` }}
+                              className={`truncate max-w-full leading-none ${dualPrice ? 'font-black text-black' : 'text-gray-500'}`}
+                              style={{ fontSize: `${dualPrice ? Math.max(8.5, Math.round(previewHeightPx * 0.095)) : Math.max(6.5, Math.round(previewHeightPx * 0.065))}px` }}
                             >
                               {line4}
                             </span>

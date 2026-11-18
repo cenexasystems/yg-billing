@@ -55,7 +55,7 @@ import { getPeriodRange } from '../lib/dateRanges'
 import { buildCsv, downloadCsvFile } from '../lib/csv'
 import { expenseService, type ExpenseRecord } from '../services/expenseService'
 import { listAdvanceOrders, type AdvanceOrder } from '../services/advanceOrderService'
-import { branchShortLabel } from '../lib/branchTheme'
+import { branchShortLabel, branchLogo } from '../lib/branchTheme'
 
 type BillingOrder = {
   id: string
@@ -636,8 +636,8 @@ export default function BillingAnalytics() {
         <div className="mx-auto max-w-[1600px] px-4 py-4 sm:px-6 lg:px-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div className="admin-logo-lockup min-w-[280px]">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#7A1220] border border-[#D4AF37]/40 shadow-sm shrink-0 p-1 overflow-hidden">
-              <img src={BRAND_ICON} alt={BRAND_EN} className="w-full h-full object-contain" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white border border-[#D4AF37]/40 shadow-sm shrink-0 p-1 overflow-hidden">
+              <img src={branchLogo(branch)} alt={BRAND_EN} className="w-full h-full object-contain" />
             </div>
             <div className="min-w-0">
               <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#5F5F5F]">Admin Billing</p>
