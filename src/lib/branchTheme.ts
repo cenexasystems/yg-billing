@@ -1,34 +1,38 @@
-import { useSettingsStore, type PosBranch, type ActiveBranch, type AdminRole, type StoreSettings } from '../store/store'
+import { useSettingsStore, POS_BRANCHES, type PosBranch, type ActiveBranch, type AdminRole, type StoreSettings } from '../store/store'
 import { normalizeHex, shadeHex, tintHex, mixHex } from './color'
-import { BRAND_LOGO_POS1, BRAND_LOGO_POS2 } from './brand'
+import { BRAND_LOGO_POS1, BRAND_LOGO_POS2, BRAND_LOGO_POS3 } from './brand'
 
 /** User-facing branch name, themed to what that branch actually sells
  * (not a generic "POS 1"/"POS 2") — keep this the single source of truth
  * for the branch name shown anywhere in the UI. */
-export const branchLabel = (branch: PosBranch) => (branch === 'pos2' ? 'Fireworks & Crackers POS' : 'Jute & Wedding POS')
+export const branchLabel = (branch: PosBranch) =>
+  branch === 'pos3' ? 'Christmas POS' : branch === 'pos2' ? 'Fireworks & Crackers POS' : 'Jute & Wedding POS'
 
 /** Short chip/badge form of branchLabel for tight spaces (nav pills, badges). */
-export const branchShortLabel = (branch: PosBranch) => (branch === 'pos2' ? 'Fireworks POS' : 'Jute & Wedding POS')
+export const branchShortLabel = (branch: PosBranch) =>
+  branch === 'pos3' ? 'Christmas POS' : branch === 'pos2' ? 'Fireworks POS' : 'Jute & Wedding POS'
 
 /** What this branch actually sells, for taglines/subtitles (matches the
  * wording baked into each branch's own logo art and Store Settings
  * business_type). */
 export const branchSubtitle = (branch: PosBranch) =>
-  branch === 'pos2' ? 'Fireworks & Crackers' : 'Wedding Card, Wedding Bag and Jute Bag Manufacturing'
+  branch === 'pos3' ? 'Christmas Stock' : branch === 'pos2' ? 'Fireworks & Crackers' : 'Wedding Card, Wedding Bag and Jute Bag Manufacturing'
 
 /** Combined tagline for admin/global contexts that span both branches
  * (e.g. the Admin Orchestrator login tab) — showing only one branch's
  * business line there would be misleading since admin manages both. */
-export const combinedBranchSubtitle = () => `${branchSubtitle('pos1')} + ${branchSubtitle('pos2')}`
+export const combinedBranchSubtitle = () => POS_BRANCHES.map((b) => branchSubtitle(b)).join(' + ')
 
 export const branchLogo = (branch: PosBranch) =>
-  useSettingsStore.getState().settingsByBranch[branch]?.logoUrl || (branch === 'pos2' ? BRAND_LOGO_POS2 : BRAND_LOGO_POS1)
+  useSettingsStore.getState().settingsByBranch[branch]?.logoUrl || (branch === 'pos3' ? BRAND_LOGO_POS3 : branch === 'pos2' ? BRAND_LOGO_POS2 : BRAND_LOGO_POS1)
 
-export const posAccent = (branch: PosBranch) => branch === 'pos2'
+export const posAccent = (branch: PosBranch) => branch === 'pos3'
+  ? { bg: 'bg-posThree', bgLight: 'bg-posThree-light', text: 'text-posThree-dark', border: 'border-posThree', hex: '#1E7B43' }
+  : branch === 'pos2'
   ? { bg: 'bg-posTwo', bgLight: 'bg-posTwo-light', text: 'text-posTwo-dark', border: 'border-posTwo', hex: '#B8860B' }
   : { bg: 'bg-posOne', bgLight: 'bg-posOne-light', text: 'text-posOne-dark', border: 'border-posOne', hex: '#8B1A1A' }
 
-export const DEFAULT_BRANCH_COLOR: Record<PosBranch, string> = { pos1: '#8B1A1A', pos2: '#B8860B' }
+export const DEFAULT_BRANCH_COLOR: Record<PosBranch, string> = { pos1: '#8B1A1A', pos2: '#B8860B', pos3: '#1E7B43' }
 export const DEFAULT_ADMIN_COLOR = '#7A1220'
 
 const ADMIN_THEME_STORAGE_KEY = 'yg_admin_theme_color'
@@ -54,8 +58,8 @@ export function setAdminThemeColor(hex: string): void {
  * picked color actually retheme's that branch's admin UI. */
 export function applyBranchThemeVars(settingsByBranch: Partial<Record<PosBranch, StoreSettings>>) {
   const root = document.documentElement
-  ;(['pos1', 'pos2'] as const).forEach((branch) => {
-    const varPrefix = branch === 'pos2' ? '--pos-two' : '--pos-one'
+  POS_BRANCHES.forEach((branch) => {
+    const varPrefix = branch === 'pos3' ? '--pos-three' : branch === 'pos2' ? '--pos-two' : '--pos-one'
     const color = normalizeHex(settingsByBranch[branch]?.themeColor || DEFAULT_BRANCH_COLOR[branch])
     root.style.setProperty(varPrefix, color)
     root.style.setProperty(`${varPrefix}-dark`, shadeHex(color))
@@ -84,6 +88,8 @@ export function applyActiveTheme(
     activeColor = normalizeHex(settingsByBranch['pos1']?.themeColor || DEFAULT_BRANCH_COLOR['pos1'])
   } else if (activeBranch === 'pos2') {
     activeColor = normalizeHex(settingsByBranch['pos2']?.themeColor || DEFAULT_BRANCH_COLOR['pos2'])
+  } else if (activeBranch === 'pos3') {
+    activeColor = normalizeHex(settingsByBranch['pos3']?.themeColor || DEFAULT_BRANCH_COLOR['pos3'])
   } else {
     // Admin global / all branches view
     activeColor = getAdminThemeColor()

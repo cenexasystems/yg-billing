@@ -1,7 +1,7 @@
 import { BRAND_EN } from './brand'
 import { couponLabel, formatCurrency, formatInvoiceNo } from './retail'
 import { formatPhoneForDisplay } from './phone'
-import type { PosBranch } from '../store/store'
+import { usesFireworksLayout, type PosBranch } from '../store/store'
 import { getBranchProfile } from './branchProfile'
 import { splitGst } from './gst'
 
@@ -39,7 +39,7 @@ export function printThermalReceipt(data: ThermalReceiptData) {
   try {
     const profile = getBranchProfile(data.branch)
     // Fireworks receipts list Qty, Rate and Amount in separate columns (plain numbers, e.g. 240.00)
-    const rateColumn = data.branch === 'pos2'
+    const rateColumn = usesFireworksLayout(data.branch)
     const plain = (n: number) => (Math.round((Number(n) || 0) * 100) / 100).toFixed(2)
     const gst = splitGst(data.totalGst || 0, data.subtotal - (data.couponDiscount || 0) - (data.manualDiscount || 0), data.gstRate)
     // Create an isolated print iframe protected from third-party extension observers

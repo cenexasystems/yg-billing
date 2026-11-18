@@ -1,13 +1,13 @@
 import { useEffect, useState, useCallback } from 'react'
 import { RefreshCw, Store } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../../lib/supabase'
-import type { PosBranch } from '../../store/store'
+import { POS_BRANCHES, type PosBranch } from '../../store/store'
 import { posAccent, branchLabel, branchLogo, branchShortLabel } from '../../lib/branchTheme'
 import { formatCurrency } from '../../lib/retail'
 import { BRAND_EN } from '../../lib/brand'
 import type { TabKey } from '../../pages/Dashboard'
 
-const BRANCHES: PosBranch[] = ['pos1', 'pos2']
+const BRANCHES: PosBranch[] = [...POS_BRANCHES]
 
 type BranchSales = {
   revenue: number
@@ -24,7 +24,7 @@ interface CrossBranchSalesProps {
 
 export default function CrossBranchSales({ onNavigate }: CrossBranchSalesProps) {
   const [loading, setLoading] = useState(true)
-  const [data, setData] = useState<Record<PosBranch, BranchSales>>({ pos1: empty(), pos2: empty() })
+  const [data, setData] = useState<Record<PosBranch, BranchSales>>({ pos1: empty(), pos2: empty(), pos3: empty() })
 
   const load = useCallback(async () => {
     if (!isSupabaseConfigured) { setLoading(false); return }
@@ -67,14 +67,14 @@ export default function CrossBranchSales({ onNavigate }: CrossBranchSalesProps) 
 
   useEffect(() => { void load() }, [load])
 
-  const totalRevenue = data.pos1.revenue + data.pos2.revenue
+  const totalRevenue = BRANCHES.reduce((sum, b) => sum + data[b].revenue, 0)
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-xl font-black text-[#1A0E0E]">Cross-Branch Sales Performance</h2>
-          <p className="text-xs text-gray-500 font-semibold mt-1">Comparative sales analytics between {branchShortLabel('pos1')} and {branchShortLabel('pos2')} (month to date).</p>
+          <p className="text-xs text-gray-500 font-semibold mt-1">Comparative sales analytics between {BRANCHES.map((b) => branchShortLabel(b)).join(', ')} (month to date).</p>
         </div>
         <button onClick={() => void load()} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 cursor-pointer">
           <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh

@@ -5,7 +5,9 @@ import { BRAND_EN } from '../../lib/brand'
 import { branchLogo, branchLabel } from '../../lib/branchTheme'
 import type { TabKey } from '../../pages/Dashboard'
 
-const posAccent = (branch: PosBranch) => branch === 'pos2'
+const posAccent = (branch: PosBranch) => branch === 'pos3'
+  ? { bg: 'bg-posThree', bgLight: 'bg-posThree-light', text: 'text-posThree-dark', border: 'border-posThree' }
+  : branch === 'pos2'
   ? { bg: 'bg-posTwo', bgLight: 'bg-posTwo-light', text: 'text-posTwo-dark', border: 'border-posTwo' }
   : { bg: 'bg-posOne', bgLight: 'bg-posOne-light', text: 'text-posOne-dark', border: 'border-posOne' }
 

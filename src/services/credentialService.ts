@@ -1,6 +1,6 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 
-export type CredentialRoleKey = 'admin' | 'pos1_staff' | 'pos2_staff'
+export type CredentialRoleKey = 'admin' | 'pos1_staff' | 'pos2_staff' | 'pos3_staff'
 
 /** DB-stored password overrides, keyed by role. A missing/empty entry
  * means "use the .env default" for that account. */

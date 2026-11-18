@@ -6,6 +6,7 @@ export const BRAND_MONOGRAM = 'YG'
 // Branch-specific barcode prefixes for inventory differentiation
 export function getBarcodePrefix(branch?: string): string {
   if (branch === 'pos2') return 'YG2'
+  if (branch === 'pos3') return 'YG3'
   return 'YG1' // Default to POS1
 }
 
@@ -20,8 +21,8 @@ export interface BarcodeSettingsConfig {
 }
 
 export function getDefaultBarcodeSettings(branch?: string): BarcodeSettingsConfig {
-  if (branch === 'pos2') {
-    // POS2: Fireworks/Crackers - Large carton labels with discounts
+  if (branch === 'pos2' || branch === 'pos3') {
+    // POS2 / POS3: Fireworks/Crackers and Christmas stock share the Fireworks counter layout - Large carton labels with discounts
     return {
       printerType: 'regular',
       selectedSizeId: '1_100x50',
@@ -52,6 +53,8 @@ export const BRAND_FAVICON = '/yg-favicon.png'
 // get their own marks wherever the UI is showing one specific branch.
 export const BRAND_LOGO_POS1 = '/yg-logo-pos1.png'
 export const BRAND_LOGO_POS2 = '/yg-logo-pos2.png'
+// Christmas POS (POS 3) uses the main YG mark until its own logo is uploaded in Store Settings
+export const BRAND_LOGO_POS3 = '/yg-logo.png'
 export const BRAND_PRODUCTION_DOMAIN = 'https://cen-gen-pos.vercel.app'
 
 // Owner / Personal contact
@@ -83,7 +86,7 @@ export const BRAND_LOCATION_LINK = '#'
 /** POS 1 opens Google's "write a review" form directly. */
 export const BRAND_GOOGLE_REVIEW_URL_POS1 = 'https://search.google.com/local/writereview?placeid=ChIJ81IBg8BvUjoRpkZfO_d-CYA'
 export const getGoogleReviewUrl = (branch?: string | null) =>
-  branch === 'pos2' ? BRAND_GOOGLE_REVIEW_URL : BRAND_GOOGLE_REVIEW_URL_POS1
+  branch === 'pos2' || branch === 'pos3' ? BRAND_GOOGLE_REVIEW_URL : BRAND_GOOGLE_REVIEW_URL_POS1
 
 // Instagram URLs shown on invoices, receipts and WhatsApp messages — same handles for both branches
 export function getInstagramUrls(_branch?: string): string {

@@ -14,6 +14,8 @@ export interface InventoryStockItem {
   stock: number
   price: number
   offer_price?: number
+  /** Christmas POS only */
+  wholesale_price?: number
   purchase_price?: number
   cost_price?: number
   unit?: string
@@ -96,6 +98,13 @@ export const inventoryService = {
       .eq('branch', branch)
       .order('name', { ascending: true })
 
+    // Wholesale prices exist on the Christmas POS only; read separately so POS 1 / POS 2 never touch the new column
+    const wholesaleById = new Map<number, number>()
+    if (branch === 'pos3') {
+      const { data: wholesaleRows } = await supabase.from('products').select('id, wholesale_price').eq('branch', 'pos3')
+      ;(wholesaleRows || []).forEach((r) => { if (r.wholesale_price != null) wholesaleById.set(Number(r.id), Number(r.wholesale_price)) })
+    }
+
     if (prodErr) {
       console.error('[inventoryService.fetchInventoryItems] Products error:', prodErr)
       throw prodErr
@@ -151,6 +160,7 @@ export const inventoryService = {
             low_stock_threshold: threshold,
             price: Number(v.price) || Number(p.price) || 0,
             offer_price: p.offer_price ? Number(p.offer_price) : undefined,
+            wholesale_price: wholesaleById.get(Number(p.id)) || undefined,
             purchase_price: v.purchase_price ? Number(v.purchase_price) : (p.purchase_price ? Number(p.purchase_price) : undefined),
             cost_price: v.purchase_price ? Number(v.purchase_price) : (p.purchase_price ? Number(p.purchase_price) : undefined),
             unit: p.unit,
@@ -177,6 +187,7 @@ export const inventoryService = {
           low_stock_threshold: threshold,
           price: Number(p.price) || 0,
           offer_price: p.offer_price ? Number(p.offer_price) : undefined,
+          wholesale_price: wholesaleById.get(Number(p.id)) || undefined,
           purchase_price: p.purchase_price ? Number(p.purchase_price) : undefined,
           cost_price: p.purchase_price ? Number(p.purchase_price) : undefined,
           unit: p.unit,

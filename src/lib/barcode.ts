@@ -196,7 +196,7 @@ export type PrintBarcode = { svg: string; widthMm: number; heightMm: number; mod
  */
 export function buildPrintBarcode(
   value: string,
-  opts: { labelWidthMm: number; labelHeightMm: number; thermal: boolean },
+  opts: { labelWidthMm: number; labelHeightMm: number; thermal: boolean; /** shorter bars, to leave room for a Wholesale / Retail price row */ compact?: boolean },
 ): PrintBarcode | null {
   if (typeof document === 'undefined' || !value.trim()) return null
   try {
@@ -219,7 +219,9 @@ export function buildPrintBarcode(
 
     // Small labels (≤ 22 mm tall) also carry a name, title and price, so bars are shorter there.
     const small = opts.labelHeightMm <= 22
-    const barMm = Math.max(4.5, opts.labelHeightMm * (small ? 0.25 : 0.32))
+    const barMm = opts.compact
+      ? Math.max(4, opts.labelHeightMm * (small ? 0.2 : 0.26))
+      : Math.max(4.5, opts.labelHeightMm * (small ? 0.25 : 0.32))
     const textMm = small ? 1.7 : Math.max(1.8, Math.min(3, opts.labelHeightMm * 0.09))
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
     JsBarcode(svg, value.trim(), {
@@ -248,6 +250,19 @@ export function buildPrintBarcode(
     console.error('[buildPrintBarcode] Failed to generate barcode:', err)
     return null
   }
+}
+
+/** "167" or "167.50": whole rupees without decimals, otherwise two. */
+export const formatLabelAmount = (n: number): string => (Number.isInteger(n) ? String(n) : n.toFixed(2))
+
+/**
+ * The Christmas POS label's price row: wholesale and retail side by side.
+ * Narrow labels use W / R so both prices always fit on one line without clipping.
+ */
+export function dualPriceText(wholesale: number | null | undefined, retail: number, labelWidthMm: number): string {
+  const w = wholesale != null && Number(wholesale) > 0 ? `₹${formatLabelAmount(Number(wholesale))}` : '₹--'
+  const r = `₹${formatLabelAmount(Number(retail) || 0)}`
+  return labelWidthMm >= 70 ? `Wholesale ${w} | Retail ${r}` : `W ${w} | R ${r}`
 }
 
 /** CSS for `.print-barcode` inside a sticker: exact size, never scaled. */

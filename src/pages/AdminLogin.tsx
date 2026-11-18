@@ -1,17 +1,14 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Lock, Eye, EyeOff, AlertCircle, ShieldCheck, Store, ShieldAlert } from 'lucide-react'
-import { useAdminAuthStore, type PosBranch } from '../store/store'
+import { useAdminAuthStore, POS_BRANCHES, type PosBranch } from '../store/store'
 import { BRAND_EN, BRAND_TA, BRAND_LOGO } from '../lib/brand'
 import { branchLogo, branchShortLabel, branchSubtitle, combinedBranchSubtitle } from '../lib/branchTheme'
 import { useLangStore } from '../store/langStore'
 import { alarmSound } from '../lib/alarmAudio'
 import CenexaFooter from '../components/common/CenexaFooter'
 
-const BRANCHES: { key: PosBranch; label: string }[] = [
-  { key: 'pos1', label: branchShortLabel('pos1') },
-  { key: 'pos2', label: branchShortLabel('pos2') },
-]
+const BRANCHES: { key: PosBranch; label: string }[] = POS_BRANCHES.map((key) => ({ key, label: branchShortLabel(key) }))
 
 export default function AdminLogin() {
   const navigate = useNavigate()
@@ -46,7 +43,7 @@ export default function AdminLogin() {
     if (role === 'staff') {
       navigate('/dashboard', { replace: true })
     } else {
-      setError(l(`Invalid staff ID or password for POS ${branch === 'pos1' ? '1' : '2'}`, 'தவறான பணியாளர் விவரங்கள்'))
+      setError(l(`Invalid staff ID or password for ${branchShortLabel(branch)}`, 'தவறான பணியாளர் விவரங்கள்'))
     }
   }
 
@@ -145,7 +142,7 @@ export default function AdminLogin() {
                   {l('Select Branch', 'கிளையை தேர்ந்தெடுக்கவும்')}
                   <span className="font-black text-red-500">*</span>
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {BRANCHES.map(({ key, label }) => (
                     <button
                       key={key}
@@ -155,7 +152,9 @@ export default function AdminLogin() {
                         branch === key
                           ? key === 'pos1'
                             ? 'border-posOne bg-posOne-light text-posOne-dark'
-                            : 'border-posTwo bg-posTwo-light text-posTwo-dark'
+                            : key === 'pos3'
+                              ? 'border-posThree bg-posThree-light text-posThree-dark'
+                              : 'border-posTwo bg-posTwo-light text-posTwo-dark'
                           : 'border-[#E8D399] bg-[#FBFAF6] text-[#6B7280]'
                       }`}
                     >

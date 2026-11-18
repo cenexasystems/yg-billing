@@ -11,7 +11,7 @@ import {
   Edit2, AlertCircle, Check
 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
-import { useProductStore, useVariantStore, useAdminAuthStore, useSettingsStore, resolveBranch, type Product } from '../store/store'
+import { useProductStore, useVariantStore, useAdminAuthStore, useSettingsStore, resolveBranch, usesFireworksLayout, branchHasCoupons, branchHasAdvanceOrders, type Product } from '../store/store'
 import { branchShortLabel } from '../lib/branchTheme'
 import { useNavigationStore } from '../store/navigationStore'
 import { barcodeService } from '../services/barcodeService'
@@ -54,6 +54,8 @@ type PosItem = Product & {
   variantId?: string         // product_variants.id
   variantName?: string       // snapshot
   parentProductId?: string   // products.id (before synthetic override)
+  /** Christmas POS: which price list this line is currently priced from */
+  priceMode?: 'retail' | 'wholesale'
 }
 
 type PosCoupon = {
@@ -158,8 +160,11 @@ export default function Pos(props: PosProps = {}) {
   const navigate = useNavigate()
   const { logout, role, activeBranch, setActiveBranch } = useAdminAuthStore()
   const branch = resolveBranch(activeBranch)
+  // The Christmas POS (POS 3) has no Coupons and no Advance Orders
+  const couponsEnabled = branchHasCoupons(branch)
+  const advanceEnabled = branchHasAdvanceOrders(branch)
   // POS 2 (Fireworks) takes mostly card payments, so card comes first there.
-  const paymentModes = branch === 'pos2' ? (['card', 'cash', 'qr', 'split'] as const) : (['cash', 'qr', 'card', 'split'] as const)
+  const paymentModes = usesFireworksLayout(branch) ? (['card', 'cash', 'qr', 'split'] as const) : (['cash', 'qr', 'card', 'split'] as const)
   const defaultPaymentType = paymentModes[0]
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [billingAdjOpen, setBillingAdjOpen] = useState(false)
@@ -224,15 +229,16 @@ export default function Pos(props: PosProps = {}) {
   // Fireworks: invoice number the next bill will get (last POS 2 bill + 1)
   const [nextInvoiceNo, setNextInvoiceNo] = useState('')
   useEffect(() => {
-    if (branch !== 'pos2' || !isSupabaseConfigured) { setNextInvoiceNo(''); return }
+    if (!usesFireworksLayout(branch) || !isSupabaseConfigured) { setNextInvoiceNo(''); return }
     let cancelled = false
     const load = () => {
-      supabase.from('orders').select('invoice_no')
-        .eq('branch', 'pos2').lt('invoice_no', '10000001')
+      // POS 2 numbers run 1..10000000; the Christmas POS (POS 3) runs from 60000001
+      const query = supabase.from('orders').select('invoice_no').eq('branch', branch)
+      ;(branch === 'pos3' ? query.gte('invoice_no', '60000001') : query.lt('invoice_no', '10000001'))
         .order('invoice_no', { ascending: false }).limit(1)
         .then(({ data, error }) => {
           if (cancelled || error) return
-          const last = Number(data?.[0]?.invoice_no) || 0
+          const last = Number(data?.[0]?.invoice_no) || (branch === 'pos3' ? 60000000 : 0)
           setNextInvoiceNo(String(last + 1).padStart(8, '0'))
         })
     }
@@ -249,6 +255,29 @@ export default function Pos(props: PosProps = {}) {
     }
   }, [branch, invoice?.id])
   const itemsListRef = useRef<HTMLDivElement>(null)
+
+  // Christmas POS (POS 3): a bill is priced from the Retail or the Wholesale price list.
+  // Switching re-prices every catalogue line; lines whose product has no wholesale price keep the retail price.
+  const [priceMode, setPriceMode] = useState<'retail' | 'wholesale'>('retail')
+  useEffect(() => {
+    if (branch !== 'pos3') return
+    setItems((cur) => {
+      if (!cur.some((it) => (it.priceMode ?? 'retail') !== priceMode)) return cur
+      return cur.map((it) => {
+        if ((it.priceMode ?? 'retail') === priceMode) return it
+        if (it.source === 'manual' || it.category === 'Unregistered') return { ...it, priceMode }
+        const retail = Number(it.offerPrice || it.price) || 0
+        const wholesale = Number(it.wholesalePrice) || 0
+        const target = priceMode === 'wholesale' && wholesale > 0 ? wholesale : retail
+        return {
+          ...it,
+          priceMode,
+          basePrice: target,
+          lineTotal: calculateLineTotal(it.qty, it.unitType, it.baseQuantity, target),
+        }
+      })
+    })
+  }, [priceMode, items, branch])
 
   useBodyScrollLock(depositOpen || Boolean(depositCreated) || Boolean(variantPickerProduct) || Boolean(priceEditModal.isOpen && priceEditModal.item))
 
@@ -273,7 +302,7 @@ export default function Pos(props: PosProps = {}) {
   // Active coupons for this branch. Re-fetched on focus and every minute so a
   // coupon created in the dashboard reaches the billing panel without a reload.
   useEffect(() => {
-    if (!isSupabaseConfigured) return
+    if (!isSupabaseConfigured || !couponsEnabled) return
     let cancelled = false
     const load = () => {
       supabase.from('coupons')
@@ -304,7 +333,7 @@ export default function Pos(props: PosProps = {}) {
       document.removeEventListener('visibilitychange', onVisible)
       window.clearInterval(timer)
     }
-  }, [branch])
+  }, [branch, couponsEnabled])
 
   // ── Derived data ──────────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -329,7 +358,7 @@ export default function Pos(props: PosProps = {}) {
   }, [products, search, activeCategory])
 
   const subtotal = items.reduce((s, i) => s + i.lineTotal, 0)
-  const isValidCoupon = !!appliedCoupon && subtotal >= (appliedCoupon.minOrderValue || 0)
+  const isValidCoupon = couponsEnabled && !!appliedCoupon && subtotal >= (appliedCoupon.minOrderValue || 0)
   // Coupon code is only recorded on the bill (and counted as a use) while its conditions are met
   const effectiveCouponCode = isValidCoupon ? appliedCoupon?.code : undefined
   const couponDiscount = isValidCoupon
@@ -346,7 +375,7 @@ export default function Pos(props: PosProps = {}) {
 
   // Auto-apply: pick the highest-percentage coupon the current cart qualifies for.
   useEffect(() => {
-    if (couponMode !== 'auto') return
+    if (!couponsEnabled || couponMode !== 'auto') return
     if (items.length === 0) {
       if (appliedCoupon) { setAppliedCoupon(null); setCouponInput('') }
       return
@@ -370,7 +399,7 @@ export default function Pos(props: PosProps = {}) {
       setAppliedCoupon(null)
       setCouponInput('')
     }
-  }, [couponMode, items.length, subtotal, availableCoupons, appliedCoupon])
+  }, [couponsEnabled, couponMode, items.length, subtotal, availableCoupons, appliedCoupon])
 
   const totalGst = billGstEnabled
     ? Math.max(0, Math.round((discountedSubtotal * (settingsGstRate / 100)) * 100) / 100)
@@ -388,7 +417,7 @@ export default function Pos(props: PosProps = {}) {
 
   // Fireworks: a product added again (quantity +) moves back to the top of the bill
   const toTopIfFireworks = (list: PosItem[], match: (i: PosItem) => boolean) => {
-    if (branch !== 'pos2') return list
+    if (!usesFireworksLayout(branch)) return list
     const hit = list.find(match)
     return hit ? [hit, ...list.filter(i => i !== hit)] : list
   }
@@ -401,7 +430,7 @@ export default function Pos(props: PosProps = {}) {
     if (prevFirstItemKey.current === firstItemKey) return
     const grew = firstItemKey !== '' && (prevFirstItemKey.current === '' || Number(firstItemKey.split('|')[3]) >= Number(prevFirstItemKey.current.split('|')[3]))
     prevFirstItemKey.current = firstItemKey
-    if (branch !== 'pos2' || !grew) return
+    if (!usesFireworksLayout(branch) || !grew) return
     const list = itemsListRef.current
     if (!list) return
     // The newest product is the first row: make sure that row is on screen
@@ -556,7 +585,7 @@ export default function Pos(props: PosProps = {}) {
         item.variantName = scanned.variant_name || undefined
         item.parentProductId = String(scanned.product_id)
         // Fireworks: the latest scanned product shows at the top of the bill
-        return branch === 'pos2' ? [item, ...cur] : [...cur, item]
+        return usesFireworksLayout(branch) ? [item, ...cur] : [...cur, item]
       }
 
       // Existing item: increment quantity by 1
@@ -800,6 +829,7 @@ export default function Pos(props: PosProps = {}) {
 
   const clearAll = () => {
     setItems([])
+    setPriceMode('retail')
     setCustomer({ name: '', phone: '', address: '' })
     setInvoice(null)
     setCashReceived('')
@@ -841,6 +871,7 @@ export default function Pos(props: PosProps = {}) {
   }, [branch])
 
   const applyCoupon = async (overrideCode?: string) => {
+    if (!couponsEnabled) return
     const code = (typeof overrideCode === 'string' ? overrideCode : couponInput).trim().toUpperCase()
     if (!code) { setCouponError('Enter a coupon code'); return }
 
@@ -901,6 +932,7 @@ export default function Pos(props: PosProps = {}) {
   const getOrderType = (): 'pos_sale' | 'manual_sale' => (items.length > 0 && items.every((item) => item.source === 'manual') ? 'manual_sale' : 'pos_sale')
 
   const openDepositOrder = () => {
+    if (!advanceEnabled) return
     if (!items.length) { setError('Add at least one product before creating a deposit order.'); return }
     if (!customer.name.trim()) { setError('Enter the customer name for the deposit order.'); return }
     if (!customer.phone.trim()) { setError('Enter the customer phone number for the deposit order.'); return }
@@ -914,6 +946,7 @@ export default function Pos(props: PosProps = {}) {
 
   const saveDepositOrder = async (event: FormEvent) => {
     event.preventDefault()
+    if (!advanceEnabled) return
     const depositAmount = Number(depositForm.amount)
     if (!Number.isFinite(depositAmount) || depositAmount <= 0 || depositAmount >= total) { setError(`Deposit must be greater than ${formatCurrency(0)} and less than ${formatCurrency(total)}.`); return }
     if (!depositForm.expectedDeliveryDate) { setError('Select the expected delivery date.'); return }
@@ -1364,6 +1397,17 @@ export default function Pos(props: PosProps = {}) {
                 >
                   POS 2 (Crackers)
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveBranch('pos3')}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                    branch === 'pos3'
+                      ? 'bg-[#111111] text-white shadow-xs'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Christmas POS
+                </button>
               </div>
             ) : (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white border border-gray-200 text-[10px] font-black uppercase tracking-wider text-[#111111] shadow-xs">
@@ -1371,7 +1415,7 @@ export default function Pos(props: PosProps = {}) {
                 {branchShortLabel(branch)}
               </span>
             )}
-            {branch === 'pos2' && (
+            {usesFireworksLayout(branch) && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white border border-[#E8D399] shadow-xs text-[11px] font-black tracking-wide text-[#111111]" title="Filled in automatically">
                 <span className="text-[9px] font-bold uppercase tracking-wider text-gray-500">Invoice No</span>
                 {nextInvoiceNo ? formatInvoiceNo(nextInvoiceNo) : '—'}
@@ -1424,7 +1468,7 @@ export default function Pos(props: PosProps = {}) {
         <div className="flex-[2.1] flex flex-col gap-4 sm:gap-6 min-w-0 max-w-full lg:overflow-y-auto lg:pb-4">
 
           {/* Customer Details Card (Fireworks enters these in the Current Order panel) */}
-          {branch !== 'pos2' && (
+          {!usesFireworksLayout(branch) && (
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3.5 sm:p-4 md:p-5 shrink-0 min-w-0 max-w-full">
             <h3 className="text-[14px] sm:text-[15px] font-black text-[#111111] flex items-center gap-2 mb-3 sm:mb-4">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-[#D4AF37]"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
@@ -1506,16 +1550,16 @@ export default function Pos(props: PosProps = {}) {
           )}
 
           {/* Order Items Card */}
-          <div className={`bg-white rounded-2xl border border-[#E8D399] shadow-sm flex flex-col min-h-[400px] ${branch === 'pos2' ? 'flex-none' : 'flex-1'}`}>
+          <div className={`bg-white rounded-2xl border border-[#E8D399] shadow-sm flex flex-col min-h-[400px] ${usesFireworksLayout(branch) ? 'flex-none' : 'flex-1'}`}>
             {/* Card Header & Barcode Scanner */}
             <div className="flex flex-col gap-3 p-4 md:p-5 border-b border-[#E8D399]">
-              <div className={branch === 'pos2' ? 'flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0' : 'flex items-center justify-between'}>
+              <div className={usesFireworksLayout(branch) ? 'flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0' : 'flex items-center justify-between'}>
                 <h3 className="text-[18px] md:text-[14px] font-black text-[#7A1220] flex items-center gap-2 shrink-0">
                   <Receipt size={16} className="text-[#D4AF37]" />
                   Order Items ({items.length})
                 </h3>
                 {/* Fireworks: customer name and mobile on the same row (same fields as the Current Order panel) */}
-                {branch === 'pos2' && (
+                {usesFireworksLayout(branch) && (
                   <div className="grid grid-cols-2 gap-2 flex-1 min-w-0">
                     <input
                       type="text"
@@ -1574,6 +1618,24 @@ export default function Pos(props: PosProps = {}) {
                   <Plus className="w-3.5 h-3.5" />
                   <span className="tracking-wide">Add Item</span>
                 </button>
+
+                {/* Christmas POS: bill at Retail or Wholesale prices */}
+                {branch === 'pos3' && (
+                  <div className="inline-flex items-center h-8 rounded-lg border border-gray-300 bg-white p-0.5 shrink-0" role="group" aria-label="Price list">
+                    {(['retail', 'wholesale'] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setPriceMode(mode)}
+                        className={`h-full px-2.5 rounded-md text-[11px] font-black capitalize transition-colors cursor-pointer ${
+                          priceMode === mode ? 'bg-[#111111] text-white' : 'text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        {mode}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1586,7 +1648,7 @@ export default function Pos(props: PosProps = {}) {
             </div>
 
             {/* Table Body */}
-            <div ref={itemsListRef} className={`flex-1 p-3 space-y-3 md:space-y-2 ${branch === 'pos2' ? '' : 'lg:overflow-y-auto'}`}>
+            <div ref={itemsListRef} className={`flex-1 p-3 space-y-3 md:space-y-2 ${usesFireworksLayout(branch) ? '' : 'lg:overflow-y-auto'}`}>
               {items.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full text-[#374151]/60">
                   <ShoppingBag size={40} className="mb-3 opacity-20" />
@@ -1808,7 +1870,7 @@ export default function Pos(props: PosProps = {}) {
               </div>
 
               {/* Coupon Code */}
-              <div>
+              {couponsEnabled && (<div>
                 <label className="block text-[10px] font-black text-[#374151] tracking-wider uppercase mb-1">Coupon Code</label>
                 <div className="flex gap-2">
                   <input
@@ -1856,7 +1918,7 @@ export default function Pos(props: PosProps = {}) {
                     Not applied — add {formatCurrency((appliedCoupon.minOrderValue || 0) - subtotal)} more (min order {formatCurrency(appliedCoupon.minOrderValue || 0)})
                   </p>
                 ))}
-              </div>
+              </div>)}
 
               {/* Discount */}
               <div>
@@ -2053,8 +2115,8 @@ export default function Pos(props: PosProps = {}) {
 
             {/* Action Buttons Fixed Footer */}
             <div className="shrink-0 border-t border-gray-200 bg-white p-3 shadow-[0_-8px_20px_rgba(0,0,0,0.04)]">
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <button
+              <div className={`grid grid-cols-1 gap-2 ${advanceEnabled ? 'sm:grid-cols-2' : ''}`}>
+                {advanceEnabled && (<button
                   type="button"
                   onClick={openDepositOrder}
                   disabled={saving || items.length === 0}
@@ -2063,7 +2125,7 @@ export default function Pos(props: PosProps = {}) {
                   className="inline-flex min-h-[44px] w-full min-w-0 items-center justify-center rounded-xl border-2 border-[#111111] bg-white px-2 py-3 text-center text-[13px] font-black uppercase leading-tight tracking-wider !text-[#111111] transition-colors hover:bg-gray-50 hover:!text-[#111111] disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-100 disabled:!text-gray-400 disabled:opacity-100"
                 >
                   <span className="block whitespace-normal !text-inherit">Save as Deposit Order</span>
-                </button>
+                </button>)}
                 <button
                   type="button"
                   onClick={generateBill}
@@ -2082,7 +2144,7 @@ export default function Pos(props: PosProps = {}) {
       </div>
       {!embeddedMode && <CenexaFooter />}
 
-      {depositOpen && createPortal(
+      {advanceEnabled && depositOpen && createPortal(
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/55 p-4">
           <form onSubmit={saveDepositOrder} className="max-h-[94vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
             <div className="mb-5 flex items-start justify-between gap-3">
@@ -2102,9 +2164,9 @@ export default function Pos(props: PosProps = {}) {
               <label className="block"><span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-[#6B7280]">Remaining balance</span><div className="rounded-xl bg-red-50 px-3 py-2.5 text-sm font-black text-red-700">{formatCurrency(Math.max(0,total-Number(depositForm.amount||0)))}</div></label>
               <label className="block"><span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-[#6B7280]">Expected delivery *</span><input required type="date" value={depositForm.expectedDeliveryDate} onChange={e => setDepositForm({...depositForm, expectedDeliveryDate:e.target.value})} className="w-full rounded-xl border px-3 py-2.5 text-sm font-bold outline-none focus:border-violet-600"/></label>
               <label className="block"><span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-[#6B7280]">Payment method *</span><select value={depositForm.paymentMethod} onChange={e => setDepositForm({...depositForm,paymentMethod:e.target.value as AdvancePaymentMethod})} className="w-full rounded-xl border px-3 py-2.5 text-sm font-bold outline-none focus:border-violet-600"><option value="cash">Cash</option><option value="upi">QR</option><option value="card">Card</option></select></label>
-              {branch !== 'pos2' && (<label className="block sm:col-span-2"><span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-[#6B7280]">Delivery address</span><textarea value={depositForm.address} onChange={e => setDepositForm({...depositForm,address:e.target.value})} className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-violet-600" rows={2}/></label>)}
-              {branch !== 'pos2' && (<label className="block sm:col-span-2"><span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-[#6B7280]">Reference Number</span><input value={depositForm.referenceNumber} onChange={e => setDepositForm({...depositForm,referenceNumber:e.target.value})} className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-violet-600" placeholder="e.g. PO-001, booking ref (optional)"/></label>)}
-              {branch !== 'pos2' && (<label className="block sm:col-span-2"><span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-[#6B7280]">Remarks</span><textarea value={depositForm.remarks} onChange={e => setDepositForm({...depositForm,remarks:e.target.value})} className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-violet-600" rows={2}/></label>)}
+              {!usesFireworksLayout(branch) && (<label className="block sm:col-span-2"><span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-[#6B7280]">Delivery address</span><textarea value={depositForm.address} onChange={e => setDepositForm({...depositForm,address:e.target.value})} className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-violet-600" rows={2}/></label>)}
+              {!usesFireworksLayout(branch) && (<label className="block sm:col-span-2"><span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-[#6B7280]">Reference Number</span><input value={depositForm.referenceNumber} onChange={e => setDepositForm({...depositForm,referenceNumber:e.target.value})} className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-violet-600" placeholder="e.g. PO-001, booking ref (optional)"/></label>)}
+              {!usesFireworksLayout(branch) && (<label className="block sm:col-span-2"><span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-[#6B7280]">Remarks</span><textarea value={depositForm.remarks} onChange={e => setDepositForm({...depositForm,remarks:e.target.value})} className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-violet-600" rows={2}/></label>)}
             </div>
             {error && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-600">{error}</div>}
             <div className="mt-5 flex gap-3"><button type="button" onClick={() => { setDepositOpen(false); setError('') }} className="flex-1 rounded-xl border py-3 text-sm font-black">Cancel</button><button disabled={saving} className="flex-[1.5] rounded-xl bg-violet-700 py-3 text-sm font-black text-white disabled:opacity-50">{saving ? 'Saving…' : 'Confirm Deposit Order'}</button></div>
@@ -2113,7 +2175,7 @@ export default function Pos(props: PosProps = {}) {
         document.body
       )}
 
-      {depositCreated && createPortal(
+      {advanceEnabled && depositCreated && createPortal(
         <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/55 p-4">
           <div className="w-full max-w-md rounded-3xl bg-white p-6 text-center shadow-2xl">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-2xl">✓</div>

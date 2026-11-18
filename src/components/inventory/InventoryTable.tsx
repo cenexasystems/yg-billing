@@ -149,6 +149,7 @@ export const InventoryTable: React.FC = () => {
     stock_quantity?: number
     category?: string
     has_variants?: boolean
+    wholesale_price?: number
   }
 
   // Combined product options for Barcode Generator intake
@@ -168,6 +169,7 @@ export const InventoryTable: React.FC = () => {
               stock_quantity: p.stockQuantity ?? p.stock ?? 0,
               category: p.category,
               has_variants: p.hasVariants,
+              wholesale_price: p.wholesalePrice,
             },
           ]
         ),
@@ -185,6 +187,7 @@ export const InventoryTable: React.FC = () => {
               stock_quantity: i.stock,
               category: i.category || undefined,
               has_variants: !!i.variant_id,
+              wholesale_price: i.wholesale_price,
             },
           ]
         ),
@@ -613,6 +616,7 @@ export const InventoryTable: React.FC = () => {
           barcodeValue={printModalItem.barcode || ''}
           price={printModalItem.price}
           mrp={printModalItem.offer_price}
+          wholesalePrice={printModalItem.wholesale_price}
           defaultQuantity={Math.max(1, printModalItem.stock)}
         />
       )}

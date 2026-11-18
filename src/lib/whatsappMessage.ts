@@ -55,7 +55,7 @@ export const publicInvoiceUrl = (invoiceNumber: string) => {
 
 export const buildProfessionalWhatsAppMessage = (input: BuildWhatsAppMessageInput) => {
   // Fireworks bills go out as the calculation only, with no invoice or website links
-  if (String(input.branch || '').toLowerCase() === 'pos2') return buildFireworksBillWhatsAppMessage(input)
+  if (['pos2', 'pos3'].includes(String(input.branch || '').toLowerCase())) return buildFireworksBillWhatsAppMessage(input)
   const customerName = input.customerName?.trim() || 'Valued Customer'
   const invoiceUrl = input.invoiceUrl || publicInvoiceUrl(input.invoiceNumber)
   const formattedNo = formatInvoiceNo(input.invoiceNumber)

@@ -1,13 +1,13 @@
 import { useEffect, useState, useCallback } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../../lib/supabase'
-import type { PosBranch } from '../../store/store'
+import { POS_BRANCHES, type PosBranch } from '../../store/store'
 import { posAccent, branchLabel, branchLogo } from '../../lib/branchTheme'
 import { formatCurrency } from '../../lib/retail'
 import { BRAND_EN } from '../../lib/brand'
 import type { TabKey } from '../../pages/Dashboard'
 
-const BRANCHES: PosBranch[] = ['pos1', 'pos2']
+const BRANCHES: PosBranch[] = [...POS_BRANCHES]
 
 type BranchStock = {
   valuation: number
@@ -24,7 +24,7 @@ interface ConsolidatedStockProps {
 
 export default function ConsolidatedStock({ onNavigate }: ConsolidatedStockProps) {
   const [loading, setLoading] = useState(true)
-  const [data, setData] = useState<Record<PosBranch, BranchStock>>({ pos1: empty(), pos2: empty() })
+  const [data, setData] = useState<Record<PosBranch, BranchStock>>({ pos1: empty(), pos2: empty(), pos3: empty() })
 
   const load = useCallback(async () => {
     if (!isSupabaseConfigured) { setLoading(false); return }

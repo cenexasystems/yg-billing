@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Store, Phone, MapPin, Palette, RotateCcw, Save, Upload, Trash2, Loader2, Shield } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { useAdminAuthStore, useSettingsStore, resolveBranch, type PosBranch } from '../../store/store'
-import { posAccent, branchShortLabel, branchLogo, getAdminThemeColor, setAdminThemeColor, applyActiveTheme } from '../../lib/branchTheme'
+import { useAdminAuthStore, useSettingsStore, resolveBranch, POS_BRANCHES, type PosBranch } from '../../store/store'
+import { posAccent, branchShortLabel, branchLogo, getAdminThemeColor, setAdminThemeColor, applyActiveTheme, DEFAULT_BRANCH_COLOR } from '../../lib/branchTheme'
 import { normalizeHex } from '../../lib/color'
 
 // 20 curated elegant, deep, eye-friendly theme colors (rich wines, deep forest greens, executive navies, dark teals, royal plums, warm espresso & obsidian)
@@ -15,7 +15,7 @@ const PRESET_COLORS = [
   '#3B183B', '#2E1065', '#4A2E12', '#18181B',
 ]
 
-type SettingsTarget = 'pos1' | 'pos2' | 'admin'
+type SettingsTarget = PosBranch | 'admin'
 
 type FormState = {
   name: string
@@ -45,10 +45,10 @@ export default function StoreSettingsView() {
 
   // Staff is locked to their branch; admin defaults to activeBranch or pos1
   const [target, setTarget] = useState<SettingsTarget>(
-    role === 'staff' ? (staffBranch || 'pos1') : (activeBranch === 'pos2' ? 'pos2' : 'pos1')
+    role === 'staff' ? (staffBranch || 'pos1') : resolveBranch(activeBranch)
   )
 
-  const effectiveBranch: PosBranch = target === 'pos2' ? 'pos2' : 'pos1'
+  const effectiveBranch: PosBranch = target === 'admin' ? 'pos1' : target
   const accent = posAccent(effectiveBranch)
   const { settingsByBranch, fetchSettings } = useSettingsStore()
   const [form, setForm] = useState<FormState>(emptyForm)
@@ -57,8 +57,7 @@ export default function StoreSettingsView() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   useEffect(() => {
-    void fetchSettings('pos1')
-    void fetchSettings('pos2')
+    POS_BRANCHES.forEach((b) => void fetchSettings(b))
   }, [fetchSettings])
 
   // Sync form when target or settingsByBranch changes
@@ -90,7 +89,7 @@ export default function StoreSettingsView() {
       gstin: currentBranchSettings.gstin || '',
       gstEnabled: currentBranchSettings.gstEnabled,
       gstRate: String(currentBranchSettings.gstRate ?? 18),
-      themeColor: currentBranchSettings.themeColor || (target === 'pos2' ? '#B8860B' : '#8B1A1A'),
+      themeColor: currentBranchSettings.themeColor || DEFAULT_BRANCH_COLOR[target],
       logoUrl: currentBranchSettings.logoUrl || '',
     })
   }, [target, settingsByBranch])
@@ -165,7 +164,7 @@ export default function StoreSettingsView() {
       if (!updated || updated.length === 0) {
         const { error: insErr } = await supabase
           .from('store_settings')
-          .insert({ id: branchToSave === 'pos2' ? 2 : 1, branch: branchToSave, ...payload })
+          .insert({ id: branchToSave === 'pos3' ? 3 : branchToSave === 'pos2' ? 2 : 1, branch: branchToSave, ...payload })
         if (insErr) throw insErr
       }
       await fetchSettings(branchToSave)
@@ -246,6 +245,18 @@ export default function StoreSettingsView() {
           >
             <span className="w-2 h-2 rounded-full bg-amber-500" />
             POS 2 — Fireworks &amp; Crackers
+          </button>
+          <button
+            type="button"
+            onClick={() => { setTarget('pos3'); setMessage(null) }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+              target === 'pos3'
+                ? 'bg-[#111111] text-white shadow-xs'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-white'
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-green-600" />
+            Christmas POS
           </button>
           <button
             type="button"

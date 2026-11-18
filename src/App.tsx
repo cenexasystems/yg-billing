@@ -1,7 +1,7 @@
 import './index.css'
 import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { useAuthStore, useProductStore, useVariantStore, useAdminAuthStore, useSettingsStore, resolveBranch } from './store/store'
+import { useAuthStore, useProductStore, useVariantStore, useAdminAuthStore, useSettingsStore, resolveBranch, POS_BRANCHES } from './store/store'
 import { BRAND_EN } from './lib/brand'
 import { clearLocalOrders } from './lib/ordersFallback'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
@@ -101,7 +101,7 @@ function AppShell() {
   const isLoginRoute = location.pathname === '/admin-login' || location.pathname === '/login'
   const hasStaffOrAdminAccess = Boolean(isLoggedIn && (role === 'admin' || role === 'staff') && !isLoginRoute)
   // Alarm only for the branch being worked in (all branches in the admin's global view)
-  useLowStockMonitor(hasStaffOrAdminAccess, role, activeBranch === 'pos1' || activeBranch === 'pos2' ? activeBranch : null)
+  useLowStockMonitor(hasStaffOrAdminAccess, role, activeBranch === 'pos1' || activeBranch === 'pos2' || activeBranch === 'pos3' ? activeBranch : null)
 
   useEffect(() => {
     document.title = BRAND_EN
@@ -111,8 +111,7 @@ function AppShell() {
   // that branch's admin UI everywhere (sidebar, Branch Hub, global aggregate
   // pages) rather than just the Store Settings preview card.
   useEffect(() => {
-    void fetchSettings('pos1')
-    void fetchSettings('pos2')
+    POS_BRANCHES.forEach((b) => void fetchSettings(b))
   }, [fetchSettings])
 
   useEffect(() => {

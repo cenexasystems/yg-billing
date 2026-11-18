@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react'
-import { renderBarcodeSvg } from '../../lib/barcode'
+import { renderBarcodeSvg, dualPriceText } from '../../lib/barcode'
 import { BRAND_EN } from '../../lib/brand'
 import { formatCurrency } from '../../lib/retail'
 
@@ -9,6 +9,9 @@ export interface BarcodeLabelProps {
   barcodeValue: string
   price: number
   mrp?: number | null
+  /** Christmas POS: print Wholesale and Retail price on one row instead of a footer price */
+  dualPrice?: boolean
+  wholesalePrice?: number | null
   storeName?: string
   widthMm?: number
   heightMm?: number
@@ -20,6 +23,8 @@ export const BarcodeLabel: React.FC<BarcodeLabelProps> = ({
   barcodeValue,
   price,
   mrp,
+  dualPrice = false,
+  wholesalePrice,
   storeName = BRAND_EN,
   widthMm = 50,
   heightMm = 30,
@@ -29,7 +34,7 @@ export const BarcodeLabel: React.FC<BarcodeLabelProps> = ({
   const isLarge = heightMm >= 40
 
   // Dynamic calculation for barcode dimensions and typography (balanced proportions to prevent overlapping)
-  const barcodeHeightPx = Math.max(16, Math.round(heightMm * 0.32 * 3.7795))
+  const barcodeHeightPx = Math.max(16, Math.round(heightMm * (dualPrice ? 0.26 : 0.32) * 3.7795))
   const printableWidthPx = Math.max(30, (widthMm - 4) * 3.7795)
   const barcodeBarWidth = Math.max(0.80, Math.min(1.70, Math.round((printableWidthPx / 120) * 100) / 100))
   const barcodeFontSize = Math.max(6, Math.min(9.5, Math.round(heightMm * 0.20 * 10) / 10))
@@ -82,6 +87,14 @@ export const BarcodeLabel: React.FC<BarcodeLabelProps> = ({
         >
           {fullTitle}
         </div>
+        {dualPrice && (
+          <div
+            className="font-black text-black whitespace-nowrap max-w-full"
+            style={{ fontSize: isSmall ? '6.5px' : isLarge ? '10px' : '8px', marginTop: '0.4mm' }}
+          >
+            {dualPriceText(wholesalePrice, price, widthMm)}
+          </div>
+        )}
       </div>
 
       {/* Barcode Graphic Box */}
@@ -99,7 +112,7 @@ export const BarcodeLabel: React.FC<BarcodeLabelProps> = ({
           paddingTop: isSmall ? '0.4mm' : '0.6mm',
         }}
       >
-        {mrp && mrp > price ? (
+        {!dualPrice && mrp && mrp > price ? (
           <span className="text-gray-500 line-through" style={{ fontSize: isSmall ? '6px' : isLarge ? '8.5px' : '7.5px' }}>
             MRP {formatCurrency(mrp)}
           </span>
@@ -108,12 +121,14 @@ export const BarcodeLabel: React.FC<BarcodeLabelProps> = ({
             {storeName}
           </span>
         )}
-        <span
-          className="font-black text-black"
-          style={{ fontSize: isSmall ? '8.5px' : isLarge ? '12px' : '10px' }}
-        >
-          {formatCurrency(price)}
-        </span>
+        {!dualPrice && (
+          <span
+            className="font-black text-black"
+            style={{ fontSize: isSmall ? '8.5px' : isLarge ? '12px' : '10px' }}
+          >
+            {formatCurrency(price)}
+          </span>
+        )}
       </div>
     </div>
   )

@@ -1,10 +1,11 @@
-import { useSettingsStore, type PosBranch } from '../store/store'
+import { useSettingsStore, toPosBranch, type PosBranch } from '../store/store'
 import {
   BRAND_ADDRESS,
   BRAND_EMAIL,
   BRAND_EN,
   BRAND_LOGO_POS1,
   BRAND_LOGO_POS2,
+  BRAND_LOGO_POS3,
   BRAND_PRIMARY_PHONE_DISPLAY,
   getGoogleReviewUrl,
   getInstagramUrls,
@@ -24,7 +25,7 @@ export interface BranchProfile {
   gstin: string
 }
 
-const toBranch = (branch?: string | null): PosBranch => (branch === 'pos2' ? 'pos2' : 'pos1')
+const toBranch = (branch?: string | null): PosBranch => toPosBranch(branch)
 
 /** "@a, b https://instagram.com/c/" → lines of instagram URLs. Empty input → '' */
 export function instagramUrlsFromIds(raw: string | null | undefined): string {
@@ -48,7 +49,7 @@ export function getBranchProfile(branch?: string | null): BranchProfile {
     address: cleanIdentityField(s?.address) || BRAND_ADDRESS,
     phone: cleanIdentityField(s?.phone) || BRAND_PRIMARY_PHONE_DISPLAY,
     email: cleanIdentityField(s?.email) || BRAND_EMAIL,
-    logo: s?.logoUrl || (b === 'pos2' ? BRAND_LOGO_POS2 : BRAND_LOGO_POS1),
+    logo: s?.logoUrl || (b === 'pos3' ? BRAND_LOGO_POS3 : b === 'pos2' ? BRAND_LOGO_POS2 : BRAND_LOGO_POS1),
     instagramUrls: instagramUrlsFromIds(s?.instagramId) || getInstagramUrls(b),
     googleReviewUrl: (s?.googleReviewUrl || '').trim() || getGoogleReviewUrl(b),
     gstin: (s?.gstin || '').trim().toUpperCase(),

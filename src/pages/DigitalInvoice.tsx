@@ -10,6 +10,7 @@ import { uploadInvoicePdf } from '../lib/storage'
 import { isUuid, normalizeStructuredOrderItem, formatInvoiceNo } from '../lib/retail'
 import { buildProfessionalWhatsAppMessage } from '../lib/whatsappMessage'
 import { toWhatsAppUrl } from '../lib/phone'
+import { usesFireworksLayout } from '../store/store'
 
 function buildLookupCandidates(id: string): string[] {
   const raw = decodeURIComponent(id || '').trim()
@@ -359,7 +360,7 @@ export default function DigitalInvoice() {
       : `\n\n📄 View Invoice: ${invoiceUrl}`
 
     // Fireworks: never send the invoice link, only the calculation
-    const whatsappMessage = invoice.branch === 'pos2' ? message : `${message}${linkSection}`
+    const whatsappMessage = usesFireworksLayout(invoice.branch) ? message : `${message}${linkSection}`
     const waUrl = toWhatsAppUrl(invoice.phone, whatsappMessage)
 
     // Open WhatsApp synchronously in user click gesture to avoid iOS Safari popup blocking

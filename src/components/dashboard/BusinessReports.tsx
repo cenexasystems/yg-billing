@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { FileText, Calendar, Download, Loader2 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../../lib/supabase'
 import { branchLabel, branchShortLabel } from '../../lib/branchTheme'
-import type { PosBranch } from '../../store/store'
+import { POS_BRANCHES, type PosBranch } from '../../store/store'
 import { buildCsv, downloadCsvFile } from '../../lib/csv'
 
-const BRANCHES: PosBranch[] = ['pos1', 'pos2']
+const BRANCHES: PosBranch[] = [...POS_BRANCHES]
 
 function downloadCsv(filename: string, header: string[], rows: (string | number)[][]) {
   downloadCsvFile(filename, buildCsv(header, rows))
@@ -128,7 +128,7 @@ export default function BusinessReports() {
       icon: <FileText size={20} />,
       iconBg: 'bg-amber-50 text-amber-600',
       title: 'Monthly Consolidated Sales',
-      description: `Combined ledger of ${branchShortLabel('pos1')} & ${branchShortLabel('pos2')} sales, discounts, and payment methods.`,
+      description: `Combined ledger of ${BRANCHES.map((b) => branchShortLabel(b)).join(', ')} sales, discounts, and payment methods.`,
       onExport: exportMonthlyConsolidatedSales,
     },
     {

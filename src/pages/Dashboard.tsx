@@ -40,7 +40,7 @@ const RMIcon = ({ size = 16, className = '' }: { size?: number; className?: stri
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { debounce } from '../lib/debounce'
-import { useAuthStore, useProductStore, useAdminAuthStore, resolveBranch, type Product, type PosBranch } from '../store/store'
+import { useAuthStore, useProductStore, useAdminAuthStore, resolveBranch, POS_BRANCHES, usesFireworksLayout, branchHasAdvanceOrders, branchHasCoupons, type Product, type PosBranch } from '../store/store'
 import { useAlarmStore } from '../store/alarmStore'
 import { alarmSound } from '../lib/alarmAudio'
 import { uploadProductImage } from '../lib/storage'
@@ -149,6 +149,7 @@ const emptyForm = {
   name: '', nameTa: '', category: '', categoryId: null as string | number | null,
   remedy: [] as string[], price: 0, offerPrice: '' as string | number,
   purchasePrice: '' as string | number, mrp: '' as string | number,
+  wholesalePrice: '' as string | number,
   sku: '', barcode: '',
   unitType: 'unit' as UnitType, unitLabel: 'piece', baseQuantity: 1,
   stockQuantity: 100, stockUnit: 'piece', allowDecimalQuantity: false,
@@ -345,6 +346,11 @@ export default function Dashboard() {
     : (err && typeof err === 'object' && 'message' in err) ? String((err as {message?:unknown}).message) || fb : fb
 
   useEffect(() => {
+    if ((tab === 'advance_orders' && !branchHasAdvanceOrders(branch)) || (tab === 'coupons' && !branchHasCoupons(branch))) {
+      setTab('billing')
+      navigate('/dashboard', { replace: true })
+      return
+    }
     if (role === 'staff') {
       const staffAllowedTabs: TabKey[] = ['branch_hub', 'billing', 'inventory', 'advance_orders', 'history']
       if (!staffAllowedTabs.includes(tab)) {
@@ -355,7 +361,7 @@ export default function Dashboard() {
       setTab(activeBranch === 'all' ? 'business_overview' : 'billing')
       navigate('/dashboard', { replace: true })
     }
-  }, [role, tab, navigate, activeBranch])
+  }, [role, tab, navigate, activeBranch, branch])
 
   const handleTabClick = (tabKey: TabKey, targetBranch?: PosBranch) => {
     if (role === 'staff') {
@@ -1022,7 +1028,7 @@ export default function Dashboard() {
       const result = await saveEditedBill({
         orderId: order.id,
         invoiceNo: order.invoice_no,
-        branch: 'pos2',
+        branch,
         originalItems: billEdit.originalItems,
         lines: billEdit.rows.map(r => ({
           index: r.index, name: r.name, qty: Number(r.qty) || 0, price: Number(r.price) || 0, stocked: r.stocked,
@@ -1130,13 +1136,13 @@ export default function Dashboard() {
   // Order history WhatsApp button. Fireworks: open WhatsApp straight away with the
   // bill's calculation (advance bills: deposit + balance + splits), no links.
   const sendBillWhatsApp = async (order: DashboardOrder) => {
-    if (branch !== 'pos2') { window.open(`/invoice/${order.id}`, '_blank'); return }
+    if (!usesFireworksLayout(branch)) { window.open(`/invoice/${order.id}`, '_blank'); return }
     // Open the tab inside the click so the browser doesn't block it, then point it at WhatsApp
     const tab = window.open('', '_blank')
     let message = ''
     try {
       if (normalizeOrderType(order.order_type) === 'advance_order') {
-        const adv = await findAdvanceOrderByCompletedOrderId(order.id, 'pos2')
+        const adv = await findAdvanceOrderByCompletedOrderId(order.id, branch)
         if (adv) message = await buildFireworksAdvanceMessage(adv)
       }
     } catch { /* fall back to the plain bill message */ }
@@ -1555,6 +1561,8 @@ export default function Dashboard() {
         offer_price: prodForm.offerPrice === '' ? null : toNumber(prodForm.offerPrice, 0),
         purchase_price: prodForm.purchasePrice === '' ? null : toNumber(prodForm.purchasePrice, 0),
         mrp: prodForm.mrp === '' ? null : toNumber(prodForm.mrp, 0),
+        // Wholesale price exists on the Christmas POS only
+        ...(branch === 'pos3' ? { wholesale_price: prodForm.wholesalePrice === '' ? null : toNumber(prodForm.wholesalePrice, 0) } : {}),
         sku: prodForm.sku || null,
         barcode: prodForm.barcode || null,
         unit_type: unitType, unit_label: prodForm.unitLabel,
@@ -1589,6 +1597,7 @@ export default function Dashboard() {
       categoryId: p.categoryId ?? null, remedy: p.remedy || [],
       price: p.price, offerPrice: p.offerPrice || '',
       purchasePrice: p.purchasePrice || '', mrp: p.mrp || '',
+      wholesalePrice: p.wholesalePrice || '',
       sku: p.sku || '', barcode: p.barcode || '',
       unitType: p.unitType,
       unitLabel: p.unitLabel, baseQuantity: p.baseQuantity,
@@ -1849,19 +1858,22 @@ export default function Dashboard() {
         { id: 'store_settings', icon: <SlidersHorizontal size={18} />, label: 'Store Settings' },
       ]
 
-  const navItems = isGlobalView ? globalNavItems : branchNavItems
+  // The Christmas POS (POS 3) has no Advance Orders and no Coupons
+  const navItems = isGlobalView
+    ? globalNavItems
+    : branchNavItems.filter((item) => !((item.id === 'advance_orders' && !branchHasAdvanceOrders(branch)) || (item.id === 'coupons' && !branchHasCoupons(branch))))
 
   // Global view: quick-jump into a branch workspace (shown directly under Business Overview)
   const renderBranchShortcuts = () => (isGlobalView && !sidebarCollapsed) ? (
             <div className="my-1 py-1 border-y border-white/10 shrink-0 lg:shrink-0 flex lg:flex-col gap-1">
               <p className="hidden lg:block text-[9px] font-black uppercase tracking-widest text-white/50 px-1 mb-0.5">Enter Branch Workspace</p>
-              {(['pos1', 'pos2'] as const).map(b => (
+              {POS_BRANCHES.map(b => (
                 <button
                   key={b}
                   onClick={() => { setActiveBranch(b); setTab('billing'); navigate('/dashboard', { replace: true }) }}
                   className="shrink-0 flex items-center gap-2 lg:w-full px-3 h-[38px] rounded-xl text-[12.5px] font-bold text-white/80 hover:bg-white/10 hover:text-[#D4AF37] transition-colors cursor-pointer"
                 >
-                  <span className={`h-2 w-2 rounded-full ${b === 'pos1' ? 'bg-posOne' : 'bg-posTwo'}`} />
+                  <span className={`h-2 w-2 rounded-full ${b === 'pos1' ? 'bg-posOne' : b === 'pos3' ? 'bg-posThree' : 'bg-posTwo'}`} />
                   {branchShortLabel(b)}
                 </button>
               ))}
@@ -1890,7 +1902,7 @@ export default function Dashboard() {
                 <h1 className="text-[15px] font-black text-white break-words tracking-wider">{BRAND_EN}</h1>
                 <div className="flex items-center gap-1 flex-wrap">
                   {!isGlobalView && (
-                    <span className={`text-[8.5px] font-black uppercase tracking-widest px-1.5 py-0.2 rounded w-fit text-white ${branch === 'pos2' ? 'bg-posTwo' : 'bg-posOne'}`}>
+                    <span className={`text-[8.5px] font-black uppercase tracking-widest px-1.5 py-0.2 rounded w-fit text-white ${branch === 'pos3' ? 'bg-posThree' : branch === 'pos2' ? 'bg-posTwo' : 'bg-posOne'}`}>
                       {branchLabel}
                     </span>
                   )}
@@ -1923,7 +1935,7 @@ export default function Dashboard() {
               </span>
               <div className="flex items-center gap-1 flex-wrap">
                 {!isGlobalView && (
-                  <span className={`shrink-0 text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded whitespace-nowrap text-white ${branch === 'pos2' ? 'bg-posTwo' : 'bg-posOne'}`}>
+                  <span className={`shrink-0 text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded whitespace-nowrap text-white ${branch === 'pos3' ? 'bg-posThree' : branch === 'pos2' ? 'bg-posTwo' : 'bg-posOne'}`}>
                     {branchLabel}
                   </span>
                 )}
@@ -1952,7 +1964,7 @@ export default function Dashboard() {
             <select
               value={activeBranch || 'all'}
               onChange={(e) => {
-                const val = e.target.value as 'all' | 'pos1' | 'pos2'
+                const val = e.target.value as 'all' | PosBranch
                 setActiveBranch(val)
                 setTab(val === 'all' ? 'business_overview' : 'billing')
                 navigate('/dashboard', { replace: true })
@@ -1962,6 +1974,7 @@ export default function Dashboard() {
               <option value="all" className="text-black">Global Admin (All Branches)</option>
               <option value="pos1" className="text-black">{branchShortLabel('pos1')}</option>
               <option value="pos2" className="text-black">{branchShortLabel('pos2')}</option>
+              <option value="pos3" className="text-black">{branchShortLabel('pos3')}</option>
             </select>
           ) : (
             <div className="w-full rounded-xl bg-white/10 border border-white/15 text-[#D4AF37] text-[11px] font-black px-2.5 py-2 flex items-center gap-1.5">
@@ -1986,7 +1999,7 @@ export default function Dashboard() {
                 'px-1 py-1 lg:py-0',
                 'rounded-xl font-medium text-[10px] lg:text-[12.5px] xl:text-[13px] transition-all overflow-hidden cursor-pointer',
                 tab === item.id
-                  ? (isGlobalView ? 'bg-[#D4AF37] text-[#7A1220]' : branch === 'pos2' ? 'bg-posTwo text-white' : 'bg-posOne text-white') + ' font-black shadow-md'
+                  ? (isGlobalView ? 'bg-[#D4AF37] text-[#7A1220]' : branch === 'pos3' ? 'bg-posThree text-white' : branch === 'pos2' ? 'bg-posTwo text-white' : 'bg-posOne text-white') + ' font-black shadow-md'
                   : 'text-white/70 hover:bg-white/10 hover:text-[#D4AF37]',
               ].join(' ')}
             >
@@ -1996,7 +2009,7 @@ export default function Dashboard() {
               <span className={`hidden lg:flex items-center gap-1.5 truncate text-left transition-all duration-200 ${sidebarCollapsed ? 'w-0 opacity-0 overflow-hidden' : 'opacity-100 flex-1'}`}>
                 <span className="truncate">{item.label}</span>
                 {item.id === 'billing' && !isGlobalView && (
-                  <span className={`shrink-0 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wide ${tab === item.id ? 'bg-white/25 text-white' : `${branch === 'pos2' ? 'bg-posTwo-light text-posTwo-dark' : 'bg-posOne-light text-posOne-dark'}`}`}>
+                  <span className={`shrink-0 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wide ${tab === item.id ? 'bg-white/25 text-white' : `${branch === 'pos3' ? 'bg-posThree-light text-posThree-dark' : branch === 'pos2' ? 'bg-posTwo-light text-posTwo-dark' : 'bg-posOne-light text-posOne-dark'}`}`}>
                     Sidebar &amp; POS
                   </span>
                 )}
@@ -2281,7 +2294,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </div>
-                <div className="bg-white rounded-2xl border border-[#E5E7EB]/30 p-5 shadow-sm">
+                {branchHasCoupons(branch) && (<div className="bg-white rounded-2xl border border-[#E5E7EB]/30 p-5 shadow-sm">
                   <h3 className="text-base font-black text-[#111111] mb-4">Top Coupons</h3>
                   <div className="space-y-3">
                     {analytics.topCoupons.slice(0, 5).map((c, i) => (
@@ -2292,7 +2305,7 @@ export default function Dashboard() {
                     ))}
                     {analytics.topCoupons.length === 0 && <p className="text-[13px] text-[#374151]">No coupons used yet.</p>}
                   </div>
-                </div>
+                </div>)}
               </div>
             )}
           </div>
@@ -2453,10 +2466,10 @@ export default function Dashboard() {
                                       <div><span className="font-black text-[#374151]">{l('Name', 'பெயர்')}: </span><span className="font-bold text-[#111111]">{order.customer_name || '-'}</span></div>
                                       <div><span className="font-black text-[#374151]">{l('Phone', 'தொலைபேசி')}: </span><span className="font-bold text-[#111111]">{formatPhoneForDisplay(order.phone) || '-'}</span></div>
                                       <div className="flex-1"><span className="font-black text-[#374151]">{l('Address', 'முகவரி')}: </span><span className="text-[#111111]">{order.address || '-'}</span></div>
-                                      {branch !== 'pos2' && Boolean(order.remarks) && (
+                                      {!usesFireworksLayout(branch) && Boolean(order.remarks) && (
                                         <div className="w-full mt-1 border-t border-blue-50 pt-2"><span className="font-black text-[#374151]">Remarks: </span><span className="font-bold text-[#111111]">{order.remarks}</span></div>
                                       )}
-                                      {branch !== 'pos2' && Boolean(order.reference_number) && (
+                                      {!usesFireworksLayout(branch) && Boolean(order.reference_number) && (
                                         <div className="w-full mt-1 border-t border-blue-50 pt-2"><span className="font-black text-[#374151]">Ref Number: </span><span className="font-bold text-[#111111]">{order.reference_number}</span></div>
                                       )}
                                     </div>
@@ -2676,7 +2689,7 @@ export default function Dashboard() {
                   { id: 'today' as const,    label: "Today's Sales", icon: <Receipt size={15} className="shrink-0" /> },
                   { id: 'products' as const, label: 'Products',      icon: <Package size={15} className="shrink-0" /> },
                   { id: 'coupons' as const,  label: 'Coupons',       icon: <Ticket size={15} className="shrink-0" /> },
-                ]).map(({ id, label, icon }) => {
+                ]).filter(({ id }) => id !== 'coupons' || branchHasCoupons(branch)).map(({ id, label, icon }) => {
                   const isActive = posAnalyticsTab === id
                   return (
                     <button
@@ -3226,7 +3239,7 @@ export default function Dashboard() {
             )}
 
             {/* Coupons sub-tab */}
-            {posAnalyticsTab === 'coupons' && (
+            {posAnalyticsTab === 'coupons' && branchHasCoupons(branch) && (
               <div className="space-y-6">
                 {/* Key metrics row */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -3417,7 +3430,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {tab === 'advance_orders' && (
+        {tab === 'advance_orders' && branchHasAdvanceOrders(branch) && (
           <AdvanceOrders
             onOrderCompleted={(adv) => {
               if (adv) handleAdvanceOrderCompleted(adv)
@@ -3729,10 +3742,10 @@ export default function Dashboard() {
                           <p className="text-[#9BAB9A] uppercase text-[10px] sm:text-[11px] font-black">Total</p>
                           <p className="font-black text-[#111111]">{formatCurrency(getOrderTotal(o))}</p>
                         </div>
-                        <div>
+                        {branchHasCoupons(branch) && (<div>
                           <p className="text-[#9BAB9A] uppercase text-[11px] font-black">Coupon</p>
                           <p className="font-semibold text-[#374151] break-words">{o.coupon_code || '—'}</p>
-                        </div>
+                        </div>)}
                         <div>
                           <p className="text-[#9BAB9A] uppercase text-[11px] font-black">Discount</p>
                           <p className="font-semibold text-emerald-700">{o.discount_amount > 0 ? `-${formatCurrency(o.discount_amount)}` : '—'}</p>
@@ -3741,13 +3754,13 @@ export default function Dashboard() {
                           <p className="text-[#9BAB9A] uppercase text-[11px] font-black">Delivery</p>
                           <p className="font-semibold text-[#111111]">{o.delivery_charge > 0 ? formatCurrency(o.delivery_charge) : '—'}</p>
                         </div>
-                        {branch !== 'pos2' && ((o as unknown as Record<string,unknown>).reference_number as string) && (
+                        {!usesFireworksLayout(branch) && ((o as unknown as Record<string,unknown>).reference_number as string) && (
                           <div>
                             <p className="text-[#9BAB9A] uppercase text-[11px] font-black">Ref #</p>
                             <p className="font-semibold text-[#111111] break-words">{(o as unknown as Record<string,unknown>).reference_number as string}</p>
                           </div>
                         )}
-                        {branch !== 'pos2' && ((o as unknown as Record<string,unknown>).remarks as string) && (
+                        {!usesFireworksLayout(branch) && ((o as unknown as Record<string,unknown>).remarks as string) && (
                           <div className="col-span-2">
                             <p className="text-[#9BAB9A] uppercase text-[11px] font-black">Remarks</p>
                             <p className="font-semibold text-[#374151] break-words">{(o as unknown as Record<string,unknown>).remarks as string}</p>
@@ -3775,7 +3788,7 @@ export default function Dashboard() {
                             {normalizeStatus(o.status) === 'completed' ? l('Completed', 'முடிந்தது') : l('Pending', 'நிலுவை')}
                           </span>
                         )}
-                        {branch === 'pos2' && (
+                        {usesFireworksLayout(branch) && (
                           <button onClick={() => openBillEdit(o)} className="h-10 w-10 sm:h-11 sm:w-11 shrink-0 rounded-xl border border-[#E5E7EB]/60 text-[#111111] transition-colors hover:bg-gray-100" title="Edit Bill">
                             <Edit2 size={14} className="mx-auto" />
                           </button>
@@ -3798,7 +3811,7 @@ export default function Dashboard() {
                 <table className="w-full text-left text-[13px]">
                   <thead className="bg-[#F9FAFB] text-[10px] uppercase tracking-wider text-[#374151]">
                     <tr>
-                      {['Invoice No', 'Customer Name', 'Phone', 'Bill Type', 'Coupon', 'Discount', 'Delivery', 'Total', 'Date', 'Status', 'Actions', 'Details'].filter(h => !(branch === 'pos2' && h === 'Details')).map(h => (
+                      {['Invoice No', 'Customer Name', 'Phone', 'Bill Type', 'Coupon', 'Discount', 'Delivery', 'Total', 'Date', 'Status', 'Actions', 'Details'].filter(h => !(usesFireworksLayout(branch) && h === 'Details') && !(!branchHasCoupons(branch) && (h === 'Coupon' || h === 'Discount'))).map(h => (
                         <th key={h} className="px-2 py-3 font-black text-center">{h}</th>
                       ))}
                     </tr>
@@ -3827,12 +3840,12 @@ export default function Dashboard() {
                           <td className="max-w-[100px] truncate px-2 py-3 text-[11px] font-semibold text-[#111111]">{o.customer_name}</td>
                           <td className="whitespace-nowrap px-2 py-3 text-[11px] text-[#374151]">{formatPhoneForDisplay(o.phone)}</td>
                           <td className="px-2 py-3"><span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase ${billTypeClass}`}>{billTypeLabel}</span></td>
-                          <td className="px-2 py-3 text-[11px]">
+                          {branchHasCoupons(branch) && (<td className="px-2 py-3 text-[11px]">
                             {o.coupon_code ? <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">{o.coupon_code}</span> : <span className="text-[#9BAB9A]">—</span>}
-                          </td>
-                          <td className="px-2 py-3 text-[11px]">
+                          </td>)}
+                          {branchHasCoupons(branch) && (<td className="px-2 py-3 text-[11px]">
                             {o.discount_amount > 0 ? <span className="font-bold text-emerald-700">-{formatCurrency(o.discount_amount)}</span> : <span className="text-[#9BAB9A]">—</span>}
-                          </td>
+                          </td>)}
                           <td className="px-2 py-3 text-[11px]">
                             {o.delivery_charge > 0 ? <span className="font-bold text-[#111111]">{formatCurrency(o.delivery_charge)}</span> : <span className="text-[#9BAB9A]">—</span>}
                           </td>
@@ -3851,7 +3864,7 @@ export default function Dashboard() {
                                   {normalizeStatus(o.status) === 'completed' ? l('Completed', 'முடிந்தது') : l('Pending', 'நிலுவை')}
                                 </span>
                               )}
-                              {branch === 'pos2' && (
+                              {usesFireworksLayout(branch) && (
                                 <button onClick={() => openBillEdit(o)} className="rounded-lg p-1 text-[#111111] transition-colors hover:bg-gray-100" title="Edit Bill">
                                   <Edit2 size={13} />
                                 </button>
@@ -3874,7 +3887,7 @@ export default function Dashboard() {
                             </div>
                           </td>
                           {/* Fireworks: no Details dropdown (it only repeated the customer and payment mode) */}
-                          {branch !== 'pos2' && (
+                          {!usesFireworksLayout(branch) && (
                           <td className="px-2 py-3 text-center">
                             <button
                               onClick={() => setHistoryExpandedId(historyExpandedId === o.id ? null : o.id)}
@@ -3890,7 +3903,7 @@ export default function Dashboard() {
                           </td>
                           )}
                         </tr>
-                        {branch !== 'pos2' && historyExpandedId === o.id && (
+                        {!usesFireworksLayout(branch) && historyExpandedId === o.id && (
                           <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]/40">
                             <td colSpan={12} className="px-4 py-4">
                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[12px]">
@@ -4024,6 +4037,15 @@ export default function Dashboard() {
                       className="w-full px-4 py-2.5 bg-[#FAFAFA] border border-[#F3F4F6] focus:border-[#D4AF37] rounded-xl text-[13px] font-bold outline-none transition-colors"
                       value={prodForm.purchasePrice} onChange={e => setProdForm(f => ({...f, purchasePrice: Number(e.target.value)}))} />
                   </div>
+                  {branch === 'pos3' && (
+                    <div>
+                      <label className="block text-[11px] font-black uppercase text-[#6B7280] tracking-wider mb-1">Wholesale Price (INR)</label>
+                      <input type="number" min="0" step="0.01"
+                        className="w-full px-4 py-2.5 bg-[#FAFAFA] border border-[#F3F4F6] focus:border-[#D4AF37] rounded-xl text-[13px] font-bold outline-none transition-colors"
+                        placeholder="Printed on the barcode label next to the retail price"
+                        value={prodForm.wholesalePrice} onChange={e => setProdForm(f => ({...f, wholesalePrice: e.target.value}))} />
+                    </div>
+                  )}
                   <div>
                     <label className="block text-[11px] font-black uppercase text-[#6B7280] tracking-wider mb-1">{l('MRP (INR)', 'MRP (INR)')}</label>
                     <input type="number" min="0" step="0.01"
@@ -4449,7 +4471,7 @@ export default function Dashboard() {
 
 
         {/* ——— COUPON MANAGEMENT (BLACK & GOLD PREMIUM THEME) ——— */}
-        {tab === 'coupons' && (
+        {tab === 'coupons' && branchHasCoupons(branch) && (
           <div className="space-y-6">
             {/* Header with Title & Refresh Action */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

@@ -61,6 +61,8 @@ export interface Product {
   barcode?: string
   brand?: string
   purchasePrice?: number
+  /** Christmas POS only (POS 3): the wholesale price shown next to the retail price */
+  wholesalePrice?: number
   mrp?: number
   gstPercent?: number
   openingStock?: number
@@ -276,6 +278,7 @@ const mapDbProduct = (input: unknown, categoriesById: Record<string, string> = {
     barcode: readString(p.barcode),
     brand: readString(p.brand),
     purchasePrice: toNumber(p.purchase_price, 0),
+    wholesalePrice: p.wholesale_price != null ? toNumber(p.wholesale_price, 0) : undefined,
     mrp: toNumber(p.mrp, 0),
     gstPercent: toNumber(p.gst_percent, 0),
     openingStock: toNumber(p.opening_stock, 0),
@@ -422,7 +425,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
   refreshProducts: () => {
     const scope = get().lastFetchScope
     if (!scope) return Promise.resolve()
-    return get().fetchProducts(scope === 'pos1' || scope === 'pos2' ? scope : undefined, true)
+    return get().fetchProducts(scope === 'pos1' || scope === 'pos2' || scope === 'pos3' ? scope : undefined, true)
   },
 }))
 
@@ -609,7 +612,7 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
       // branch. Unscoped reads (public storefront, which has no branch context)
       // intentionally resolve to POS 1 — the original shop — instead of grabbing
       // an arbitrary row, which made .single() fail once row #2 existed.
-      const queryBranch: PosBranch = branch === 'pos2' ? 'pos2' : 'pos1'
+      const queryBranch: PosBranch = toPosBranch(branch)
       const { data, error } = await supabase
         .from('store_settings')
         .select('*')
@@ -636,7 +639,7 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
           instagramId: data.instagram_id || '',
           googleReviewUrl: String(data.google_review_url || '').trim(),
           logoUrl: data.logo_url || null,
-          themeColor: data.theme_color || (queryBranch === 'pos2' ? '#B8860B' : '#8B1A1A'),
+          themeColor: data.theme_color || DEFAULT_THEME_COLOR[queryBranch],
           gstEnabled: Boolean(data.gst_enabled),
           gstRate: Math.max(0, Number(data.gst_rate) || 0),
           gstin: String(data.gstin || '').trim(),
@@ -660,7 +663,7 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
       instagramId: '',
       googleReviewUrl: '',
       logoUrl: null,
-      themeColor: branch === 'pos2' ? '#B8860B' : '#8B1A1A',
+      themeColor: DEFAULT_THEME_COLOR[toPosBranch(branch)],
       gstEnabled: false,
       gstRate: 0,
       gstin: '',
@@ -675,12 +678,22 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
 
 // --- Admin Auth Store ---
 export type AdminRole = 'admin' | 'staff' | null
-export type PosBranch = 'pos1' | 'pos2'
+export type PosBranch = 'pos1' | 'pos2' | 'pos3'
+/** Every POS counter, in display order. POS 3 is the Christmas POS. */
+export const POS_BRANCHES: readonly PosBranch[] = ['pos1', 'pos2', 'pos3']
+/** Counters that run the Fireworks-style counter layout (POS 2 and the Christmas POS). */
+export const usesFireworksLayout = (branch?: string | null): boolean => branch === 'pos2' || branch === 'pos3'
+/** The Christmas POS has no Advance Orders and no Coupons. */
+export const branchHasAdvanceOrders = (branch?: string | null): boolean => branch !== 'pos3'
+export const branchHasCoupons = (branch?: string | null): boolean => branch !== 'pos3'
+/** Narrows any string to a known counter, defaulting to POS 1 (the original shop). */
+export const toPosBranch = (branch?: string | null): PosBranch => (branch === 'pos2' || branch === 'pos3' ? branch : 'pos1')
+const DEFAULT_THEME_COLOR: Record<PosBranch, string> = { pos1: '#8B1A1A', pos2: '#B8860B', pos3: '#1E7B43' }
 export type ActiveBranch = PosBranch | 'all' | null
 
 /** Normalizes the dashboard's active-branch selection to a concrete branch for
  * branch-scoped queries (defaults to POS 1 when viewing the global 'all' aggregate). */
-export const resolveBranch = (activeBranch: ActiveBranch): PosBranch => (activeBranch === 'pos2' ? 'pos2' : 'pos1')
+export const resolveBranch = (activeBranch: ActiveBranch): PosBranch => toPosBranch(activeBranch)
 
 interface AdminAuthState {
   isLoggedIn: boolean
@@ -740,6 +753,17 @@ export const useAdminAuthStore = create<AdminAuthState>()(
           if (branchAttempt && branchAttempt !== 'pos2') return false
           useAlarmStore.getState().resetSilencedState()
           set({ isLoggedIn: true, role: 'staff', adminId: trimmedId, branch: 'pos2', activeBranch: 'pos2' })
+          return 'staff'
+        }
+
+        // 4. Check Christmas POS (POS 3) Staff Credentials
+        const pos3Id = String(import.meta.env.VITE_POS3_STAFF_ID || 'staff3').trim()
+        const pos3Pass = overrides.pos3_staff || String(import.meta.env.VITE_POS3_STAFF_PASSWORD || 'staff123').trim()
+
+        if (pos3Id && trimmedId === pos3Id && trimmedPass === pos3Pass) {
+          if (branchAttempt && branchAttempt !== 'pos3') return false
+          useAlarmStore.getState().resetSilencedState()
+          set({ isLoggedIn: true, role: 'staff', adminId: trimmedId, branch: 'pos3', activeBranch: 'pos3' })
           return 'staff'
         }
 

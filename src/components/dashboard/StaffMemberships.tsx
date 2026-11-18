@@ -16,6 +16,7 @@ function buildRoster(): RosterEntry[] {
   const adminId = String(import.meta.env.VITE_ADMIN_ID || import.meta.env.VITE_PORTAL_ID || 'admin').trim()
   const pos1Id = String(import.meta.env.VITE_POS1_STAFF_ID || import.meta.env.VITE_STAFF_ID || 'staff').trim()
   const pos2Id = String(import.meta.env.VITE_POS2_STAFF_ID || '').trim()
+  const pos3Id = String(import.meta.env.VITE_POS3_STAFF_ID || 'staff3').trim()
 
   const roster: RosterEntry[] = [
     { id: adminId, label: adminId, role: 'ADMIN', branch: 'all', roleKey: 'admin' },
@@ -23,6 +24,9 @@ function buildRoster(): RosterEntry[] {
   ]
   if (pos2Id) {
     roster.push({ id: pos2Id, label: pos2Id, role: 'STAFF', branch: 'pos2', roleKey: 'pos2_staff' })
+  }
+  if (pos3Id) {
+    roster.push({ id: pos3Id, label: pos3Id, role: 'STAFF', branch: 'pos3', roleKey: 'pos3_staff' })
   }
   return roster
 }

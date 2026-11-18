@@ -3,7 +3,7 @@ import html2canvas from 'html2canvas'
 import { BRAND_EN } from './brand'
 import { couponLabel, formatCurrency, formatQuantityValue, normalizeStructuredOrderItem, normalizeUnitLabel, formatInvoiceNo } from './retail'
 import { LOGO_BASE64_POS1, LOGO_BASE64_POS2 } from './logoBase64'
-import type { PosBranch } from '../store/store'
+import { usesFireworksLayout, type PosBranch } from '../store/store'
 import { getBranchProfile } from './branchProfile'
 import { formatPhoneForDisplay } from './phone'
 import { splitGst } from './gst'
@@ -88,7 +88,7 @@ export function createInvoicePdf(data: InvoicePdfData): Blob {
   const customerName = String(data.customerName || 'Walk-in Customer').trim()
   const customerPhone = formatPhoneForDisplay(data.phone) || '—'
   // Fireworks bills don't show a customer address
-  const customerAddress = data.branch === 'pos2' ? '' : String(data.address || '').trim()
+  const customerAddress = usesFireworksLayout(data.branch) ? '' : String(data.address || '').trim()
   const customerNameLines = doc.splitTextToSize(customerName, 165) as string[]
   const customerAddressLines = customerAddress
     ? doc.splitTextToSize(`Address: ${customerAddress}`, 165) as string[]

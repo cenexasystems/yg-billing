@@ -30,7 +30,8 @@ export function fetchAllCategories(branch?: PosBranch) {
 
 export function fetchAllProducts(branch?: PosBranch) {
   if (!branch) return supabase.from('products').select(PRODUCT_COLUMNS).order('sort_order', { ascending: true })
-  return supabase.from('products').select(`${PRODUCT_COLUMNS}, ${INVENTORY_COLUMNS}`).order('sort_order', { ascending: true }).eq('branch', branch)
+  const extra = branch === 'pos3' ? `${INVENTORY_COLUMNS}, wholesale_price` : INVENTORY_COLUMNS
+  return supabase.from('products').select(`${PRODUCT_COLUMNS}, ${extra}`).order('sort_order', { ascending: true }).eq('branch', branch)
 }
 
 export async function updateItemPrice(params: {

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { X, Printer, Copy, Check, Settings } from 'lucide-react'
 import { BarcodeLabel } from './BarcodeLabel'
 import { BRAND_EN, getBarcodePrefix, getDefaultBarcodeSettings } from '../../lib/brand'
-import { type BarcodeSettings, getAllLabelSizes, buildPrintBarcode, PRINT_BARCODE_CSS, getStoredBarcodeSettings } from '../../lib/barcode'
+import { type BarcodeSettings, getAllLabelSizes, buildPrintBarcode, PRINT_BARCODE_CSS, getStoredBarcodeSettings, dualPriceText } from '../../lib/barcode'
 import { BarcodeSettingsDrawer } from './BarcodeSettingsDrawer'
 import { useAdminAuthStore, resolveBranch } from '../../store/store'
 
@@ -15,6 +15,8 @@ export interface BarcodePrintModalProps {
   barcodeValue: string
   price: number
   mrp?: number | null
+  /** Christmas POS: shown next to the retail price on the label */
+  wholesalePrice?: number | null
   defaultQuantity?: number
 }
 
@@ -48,9 +50,12 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
   barcodeValue,
   price,
   mrp,
+  wholesalePrice,
   defaultQuantity = 1,
 }) => {
   const branch = useAdminAuthStore((state) => resolveBranch(state.activeBranch))
+  // The Christmas POS prints Wholesale and Retail price on one row
+  const dualPrice = branch === 'pos3'
   const [quantity, setQuantity] = useState<string>(String(defaultQuantity || 1))
   // Saved Barcode Settings win; branch defaults apply only when nothing is saved yet
   const loadSettings = (): BarcodeSettings => {
@@ -139,6 +144,7 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
         labelWidthMm: selectedPreset.widthMm,
         labelHeightMm: selectedPreset.heightMm,
         thermal: isThermal,
+        compact: dualPrice,
       })?.svg || ''
 
       const headerFontSize = isSmall ? '7pt' : isLarge ? '10.5pt' : '8.5pt'
@@ -155,13 +161,14 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
         <div class="header">
           <div class="brand">${BRAND_EN}</div>
           <div class="prod-title">${fullTitle}</div>
+          ${dualPrice ? `<div class="price-row">${dualPriceText(wholesalePrice, price, selectedPreset.widthMm)}</div>` : ''}
         </div>
         <div class="barcode-box">
           ${svgMarkup}
         </div>
         <div class="footer">
-          <span>${mrp && mrp > price ? `<span class="mrp">MRP ₹${mrp}</span>` : `<span class="retail-tag">${footerText.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string))}</span>`}</span>
-          <span class="price">₹${price}</span>
+          <span>${!dualPrice && mrp && mrp > price ? `<span class="mrp">MRP ₹${mrp}</span>` : `<span class="retail-tag">${footerText.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string))}</span>`}</span>
+          ${dualPrice ? '' : `<span class="price">₹${price}</span>`}
         </div>
       </div>
     `
@@ -298,6 +305,15 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
               max-width: 98%;
               margin-top: 0.3mm;
               color: #111;
+              line-height: 1.1;
+            }
+            .price-row {
+              font-size: ${isSmall ? '6.5pt' : isLarge ? '10pt' : '8pt'};
+              font-weight: 900;
+              white-space: nowrap;
+              max-width: 98%;
+              margin-top: 0.4mm;
+              color: #000;
               line-height: 1.1;
             }
             .barcode-box {
@@ -561,6 +577,8 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
                 barcodeValue={barcodeValue}
                 price={price}
                 mrp={mrp}
+                dualPrice={dualPrice}
+                wholesalePrice={wholesalePrice}
                 storeName={footerText}
                 widthMm={selectedPreset.widthMm}
                 heightMm={selectedPreset.heightMm}
