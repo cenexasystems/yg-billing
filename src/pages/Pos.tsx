@@ -21,6 +21,7 @@ import CatalogModal from '../components/CatalogModal'
 import CenexaFooter from '../components/common/CenexaFooter'
 import { invoicePdfFile } from '../lib/invoicePdf'
 import { uploadInvoicePdf } from '../lib/storage'
+import type { StructuredOrderItem } from '../lib/retail'
 import { createOrderWithStock } from '../services/orderService'
 import { isCouponExpired } from '../services/couponService'
 import { createAdvanceOrder, type AdvanceOrder, type AdvancePaymentMethod } from '../services/advanceOrderService'
@@ -1017,7 +1018,7 @@ export default function Pos(props: PosProps = {}) {
         customerName: customer.name.trim() || 'Walk-in Customer',
         phone: normalizedPhone,
         address: customer.address.trim() || 'POS Counter',
-        items: items.map(item => buildStructuredOrderItem({
+        items: items.map(item => (buildStructuredOrderItem({
           productId:    item.parentProductId ? item.parentProductId : toProductId(item.id),
           variantId:    item.variantId   ?? null,
           variantName:  item.variantName ?? null,
@@ -1033,7 +1034,7 @@ export default function Pos(props: PosProps = {}) {
           isManual: item.source === 'manual' || item.category === 'Unregistered',
           category: item.category || null,
           note: item.note || null,
-        })),
+        })) as StructuredOrderItem).map((built, i) => branch === 'pos3' ? { ...built, price_mode: items[i].priceMode ?? 'retail' } : built),
         shipping: Number(shipping || 0),
         status: 'completed',
         orderMode: ordermode,

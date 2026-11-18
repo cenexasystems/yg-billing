@@ -577,6 +577,12 @@ export default function Dashboard() {
     // Revenue (WhatsApp never included) - directly calculates from completed bills
     const completedRevenue   = billableCompleted.reduce((s, o) => s + getOrderTotal(o), 0)
     const averageRevenuePerBill = billableCompleted.length > 0 ? completedRevenue / billableCompleted.length : 0
+    // Christmas POS: split bills by the price list they were billed at (untagged older bills count as retail)
+    const isWholesaleBill = (o: DashboardOrder) => parseOrderItems(o.items).some(it => (it as Record<string, unknown>).price_mode === 'wholesale')
+    const wholesaleBills = branch === 'pos3' ? billableCompleted.filter(isWholesaleBill) : []
+    const retailBills = branch === 'pos3' ? billableCompleted.filter(o => !isWholesaleBill(o)) : []
+    const wholesaleRevenue = wholesaleBills.reduce((s, o) => s + getOrderTotal(o), 0)
+    const retailRevenue = retailBills.reduce((s, o) => s + getOrderTotal(o), 0)
     const posRevenue         = offlinePOS.reduce((s, o) => s + getOrderTotal(o), 0)
     const advanceRevenue     = advanceOrders.reduce((s, o) => s + getOrderTotal(o), 0)
     const onlinePosRevenue   = onlinePOS.reduce((s, o) => s + getOrderTotal(o), 0)
@@ -854,6 +860,7 @@ export default function Dashboard() {
 
     return {
       totalCompletedRevenue: completedRevenue,
+      retailRevenue, wholesaleRevenue, retailBillCount: retailBills.length, wholesaleBillCount: wholesaleBills.length,
       averageRevenuePerBill,
       todaySales,
       todayCompletedOrdersCount,
@@ -2121,6 +2128,21 @@ export default function Dashboard() {
 
             {analyticsTab === 'revenue' && (
               <>
+
+            {branch === 'pos3' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {[
+                  { label: 'Retail Sales', value: analytics.retailRevenue, count: analytics.retailBillCount, from: 'from-emerald-50 via-emerald-50/80 to-teal-50' },
+                  { label: 'Wholesale Sales', value: analytics.wholesaleRevenue, count: analytics.wholesaleBillCount, from: 'from-rose-50 via-rose-50/80 to-orange-50' },
+                ].map(c => (
+                  <div key={c.label} className={`bg-gradient-to-br ${c.from} rounded-2xl border border-white/40 p-4 sm:p-5 shadow-sm`}>
+                    <p className="text-[11px] uppercase font-black text-[#374151] tracking-wider">{c.label}</p>
+                    <p className="mt-2 text-[23px] font-black leading-tight text-[#111111]">{formatCurrency(c.value)}</p>
+                    <p className="mt-1 text-[11px] font-semibold text-gray-500">{c.count} bill{c.count === 1 ? '' : 's'}</p>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Revenue KPIs - 6 cards in 3 columns */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
