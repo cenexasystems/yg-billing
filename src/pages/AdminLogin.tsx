@@ -142,13 +142,13 @@ export default function AdminLogin() {
                   {l('Select Branch', 'கிளையை தேர்ந்தெடுக்கவும்')}
                   <span className="font-black text-red-500">*</span>
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 items-stretch gap-2">
                   {BRANCHES.map(({ key, label }) => (
                     <button
                       key={key}
                       type="button"
                       onClick={() => { setBranch(key); setError('') }}
-                      className={`flex items-center gap-2 rounded-xl border-2 px-3 py-2.5 text-left transition-colors cursor-pointer ${
+                      className={`flex min-w-0 flex-col items-center justify-start gap-1.5 rounded-xl border-2 px-2 py-3 text-center transition-colors cursor-pointer ${
                         branch === key
                           ? key === 'pos1'
                             ? 'border-posOne bg-posOne-light text-posOne-dark'
@@ -158,12 +158,12 @@ export default function AdminLogin() {
                           : 'border-[#E8D399] bg-[#FBFAF6] text-[#6B7280]'
                       }`}
                     >
-                      <span className="w-8 h-8 shrink-0 rounded-lg bg-white border border-black/5 p-1 flex items-center justify-center overflow-hidden">
+                      <span className="w-10 h-10 shrink-0 rounded-lg bg-white border border-black/5 p-1 flex items-center justify-center overflow-hidden">
                         <img src={branchLogo(key)} alt="" className="w-full h-full object-contain" />
                       </span>
-                      <span>
-                        <p className="text-xs font-black">{label}</p>
-                        <p className="text-[10px] font-semibold opacity-80">{BRAND_EN}</p>
+                      <span className="flex min-w-0 flex-col items-center">
+                        <p className="text-[11px] font-black leading-tight">{label}</p>
+                        <p className="mt-0.5 text-[9px] font-semibold leading-tight opacity-80">{BRAND_EN}</p>
                       </span>
                     </button>
                   ))}

@@ -81,7 +81,7 @@ export default function CrossBranchSales({ onNavigate }: CrossBranchSalesProps) 
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {BRANCHES.map((b) => {
           const accent = posAccent(b)
           const s = data[b]

@@ -121,7 +121,7 @@ export default function BusinessOverview({ onNavigate }: BusinessOverviewProps) 
           <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Operating Branch Nodes</p>
           <p className="text-[10px] text-gray-400 font-semibold">Autonomous Branch Workspaces</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {BRANCHES.map((b) => {
             const accent = posAccent(b)
             const s = stats[b]
