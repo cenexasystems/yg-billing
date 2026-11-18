@@ -13,12 +13,22 @@
 -- ===================================================================
 
 DO $guard$
+DECLARE
+  v_has_rows BOOLEAN;
 BEGIN
-  IF to_regclass('public.orders') IS NOT NULL AND EXISTS (SELECT 1 FROM public.orders) THEN
-    RAISE EXCEPTION 'Refusing to run: this database already has orders. This script is for a NEW empty project only.';
+  -- Looked up dynamically: on a new project these tables do not exist yet,
+  -- and a static reference would fail when the block is planned.
+  IF to_regclass('public.orders') IS NOT NULL THEN
+    EXECUTE 'SELECT EXISTS (SELECT 1 FROM public.orders)' INTO v_has_rows;
+    IF v_has_rows THEN
+      RAISE EXCEPTION 'Refusing to run: this database already has orders. This script is for a NEW empty project only.';
+    END IF;
   END IF;
-  IF to_regclass('public.products') IS NOT NULL AND EXISTS (SELECT 1 FROM public.products) THEN
-    RAISE EXCEPTION 'Refusing to run: this database already has products. This script is for a NEW empty project only.';
+  IF to_regclass('public.products') IS NOT NULL THEN
+    EXECUTE 'SELECT EXISTS (SELECT 1 FROM public.products)' INTO v_has_rows;
+    IF v_has_rows THEN
+      RAISE EXCEPTION 'Refusing to run: this database already has products. This script is for a NEW empty project only.';
+    END IF;
   END IF;
 END
 $guard$;
