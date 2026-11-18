@@ -1,34 +1,32 @@
-﻿-- ====================================================================
--- COMBINED MIGRATION: run this single file in the Supabase SQL Editor
--- !! FOR A BRAND-NEW, EMPTY DATABASE ONLY. !!
--- This file REPLAYS the entire history from 0001. Running it against a
--- database that is already populated will re-execute old seeds and
--- re-apply historical UPDATEs. In particular, 0024's catalog section
--- carries an unconditional DELETE scoped to POS 2 - the seed_ledger
--- guards added in 0036 stop that from firing on a re-run, but only once
--- 0036 has been applied. On a live database, apply the individual
--- migrations/supabase/migrations/*.sql you actually need instead.
+-- ===================================================================
+-- YG ENTERPRISES: complete database setup, ALL migrations in one script
+-- (POS 1, POS 2 and the Christmas POS / POS 3)
+-- ===================================================================
 --
--- Contains the ENTIRE migration history for this project, in filename
--- order, from the base schema through the POS1/POS2 branch split,
--- CHAJI data cleanup, starter catalog seed, staff attendance, the POS1/POS2
--- branch-isolation hardening and the POS 1 store-identity repair.
+-- FOR A NEW, EMPTY SUPABASE PROJECT ONLY. Paste into the SQL Editor and
+-- run once. Do NOT run this on a database that already has data: an old
+-- migration (0021) deletes every product and category. The guard below
+-- stops the script if it finds existing data.
 --
--- Use this if your Supabase project is EMPTY (no `products`/`orders`
--- tables yet) â€” running only the later branch-split files will fail
--- with "relation ... does not exist" otherwise, since they only ALTER
--- tables that the base schema (section 1) creates.
---
--- Each original file keeps its own BEGIN/COMMIT block, so this still
--- runs as N sequential transactions, exactly as if you'd pasted every
--- file in supabase/migrations/ one by one in order. Safe to re-run in
--- full from the top at any point (every statement is idempotent via
--- IF NOT EXISTS / IF EXISTS / ON CONFLICT / DROP-before-CREATE guards).
--- ====================================================================
+-- Already-running database that only needs the Christmas POS? Run
+-- supabase/migrations/20261110_0047_pos3_christmas_branch.sql by itself.
+-- ===================================================================
 
--- ============================================================
--- SECTION 1 / 32 â€” 20260716_0001_purple_boutique_schema.sql
--- ============================================================
+DO $guard$
+BEGIN
+  IF to_regclass('public.orders') IS NOT NULL AND EXISTS (SELECT 1 FROM public.orders) THEN
+    RAISE EXCEPTION 'Refusing to run: this database already has orders. This script is for a NEW empty project only.';
+  END IF;
+  IF to_regclass('public.products') IS NOT NULL AND EXISTS (SELECT 1 FROM public.products) THEN
+    RAISE EXCEPTION 'Refusing to run: this database already has products. This script is for a NEW empty project only.';
+  END IF;
+END
+$guard$;
+
+
+-- ############################################################
+-- SECTION 1 / 49 -- 20260716_0001_purple_boutique_schema.sql
+-- ############################################################
 
 -- YG Enterprises billing schema.
 -- Safe to run against a fresh project or the existing YG Enterprises project.
@@ -227,8 +225,8 @@ CREATE TABLE IF NOT EXISTS public.store_settings (
 -- Seed the default profile only when the row does not exist yet.
 -- WHY NOT "DO UPDATE ...": this ran on every re-run and reset id = 1 back to
 -- these Purple Boutique / Cyberjaya defaults, which re-armed the retired
--- CLAD seed in section 12 and silently wiped any profile the owner had saved
--- from Admin -> Store Settings. A seed must never clobber live data.
+-- CLAD seed in 0012 and silently wiped any profile the owner had saved from
+-- Admin -> Store Settings. A seed must never clobber live data.
 INSERT INTO public.store_settings (id, name, phone, email, address)
 VALUES (
   1,
@@ -584,9 +582,10 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END;
 $$;
 
--- ============================================================
--- SECTION 2 / 32 â€” 20260716_0002_purple_boutique_catalog.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 2 / 49 -- 20260716_0002_purple_boutique_catalog.sql
+-- ############################################################
 
 -- YG Enterprises initial catalog. Existing matching products are preserved.
 --
@@ -761,9 +760,10 @@ ON CONFLICT (seed_key) DO NOTHING;
 
 NOTIFY pgrst, 'reload schema';
 
--- ============================================================
--- SECTION 3 / 32 â€” 20260716_0003_order_rpc_compatibility.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 3 / 49 -- 20260716_0003_order_rpc_compatibility.sql
+-- ############################################################
 
 -- Align the live legacy billing schema with the current YG Enterprises RPC payload.
 -- Idempotent: safe for both upgraded and freshly migrated projects.
@@ -1005,10 +1005,9 @@ NOTIFY pgrst, 'reload schema';
 COMMIT;
 
 
-
--- ============================================================
--- SECTION 4 / 32 â€” 20260719_0004_advance_orders.sql
--- ============================================================
+-- ############################################################
+-- SECTION 4 / 49 -- 20260719_0004_advance_orders.sql
+-- ############################################################
 
 begin;
 
@@ -1188,9 +1187,10 @@ grant execute on function public.complete_advance_order(uuid,text,text) to publi
 notify pgrst, 'reload schema';
 commit;
 
--- ============================================================
--- SECTION 5 / 32 â€” 20260722_0005_eight_digit_invoice_numbers.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 5 / 49 -- 20260722_0005_eight_digit_invoice_numbers.sql
+-- ############################################################
 
 -- Migration: 8-digit Invoice Number Generation
 -- Ensures invoice numbers are strictly 8 digits in total (e.g., 10000001, 10000002...)
@@ -1207,9 +1207,10 @@ AS $$
   SELECT LPAD(nextval('public.invoice_number_seq')::TEXT, 8, '0');
 $$;
 
--- ============================================================
--- SECTION 6 / 32 â€” 20260724_0006_fix_complete_advance_order.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 6 / 49 -- 20260724_0006_fix_complete_advance_order.sql
+-- ############################################################
 
 -- Migration: Fix complete_advance_order RPC
 -- The previous version referenced columns (unit_price, source, note) that do
@@ -1254,7 +1255,7 @@ BEGIN
   -- Generate invoice number using the existing 8-digit sequence
   v_invoice := LPAD(nextval('public.invoice_number_seq')::TEXT, 8, '0');
 
-  -- Build items JSONB â€” prefer products array, fall back to single product
+  -- Build items JSONB — prefer products array, fall back to single product
   v_items := CASE
     WHEN jsonb_typeof(v_advance.products) = 'array' AND jsonb_array_length(v_advance.products) > 0
       THEN v_advance.products
@@ -1343,9 +1344,10 @@ GRANT EXECUTE ON FUNCTION public.complete_advance_order(uuid, text, text)
 
 NOTIFY pgrst, 'reload schema';
 
--- ============================================================
--- SECTION 7 / 32 â€” 20260724_0008_fix_public_invoice_rpc.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 7 / 49 -- 20260724_0008_fix_public_invoice_rpc.sql
+-- ############################################################
 
 -- Migration: Fix missing get_public_invoice_by_number RPC
 -- Re-creates the function and forces a schema cache reload to resolve 404 errors on the /invoice page
@@ -1366,9 +1368,10 @@ GRANT EXECUTE ON FUNCTION public.get_public_invoice_by_number(TEXT) TO anon, aut
 -- Force PostgREST to reload the schema cache
 NOTIFY pgrst, 'reload schema';
 
--- ============================================================
--- SECTION 8 / 32 â€” 20260724_0009_create_invoices_bucket.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 8 / 49 -- 20260724_0009_create_invoices_bucket.sql
+-- ############################################################
 
 -- Migration: Create invoices storage bucket
 -- Creates the 'invoices' bucket and sets up public read access and upload policies
@@ -1386,9 +1389,10 @@ CREATE POLICY invoices_portal_upload ON storage.objects FOR INSERT TO anon, auth
 DROP POLICY IF EXISTS invoices_portal_update ON storage.objects;
 CREATE POLICY invoices_portal_update ON storage.objects FOR UPDATE TO anon, authenticated USING (bucket_id = 'invoices') WITH CHECK (bucket_id = 'invoices');
 
--- ============================================================
--- SECTION 9 / 32 â€” 20260726_0007_update_complete_advance_order_discount.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 9 / 49 -- 20260726_0007_update_complete_advance_order_discount.sql
+-- ############################################################
 
 -- Migration: Update complete_advance_order to handle final amount, discounts, and coupons
 -- This creates a new version of the RPC (v2) which is called from the frontend.
@@ -1534,9 +1538,10 @@ GRANT EXECUTE ON FUNCTION public.complete_advance_order_v2(uuid, text, numeric, 
 
 NOTIFY pgrst, 'reload schema';
 
--- ============================================================
--- SECTION 10 / 32 â€” 20260728_0010_final_audit_fixes.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 10 / 49 -- 20260728_0010_final_audit_fixes.sql
+-- ############################################################
 
 -- ============================================================
 -- Migration 0010: Final audit fixes
@@ -1660,9 +1665,10 @@ CREATE POLICY "Users can update own profile"
 -- 8. Reload PostgREST schema cache
 NOTIFY pgrst, 'reload schema';
 
--- ============================================================
--- SECTION 11 / 32 â€” 20260808_0011_billing_date_and_order_fields.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 11 / 49 -- 20260808_0011_billing_date_and_order_fields.sql
+-- ############################################################
 
 -- ============================================================
 -- Migration 0011: Add billing_date and ensure order metadata columns exist
@@ -1695,9 +1701,10 @@ NOTIFY pgrst, 'reload schema';
 
 COMMIT;
 
--- ============================================================
--- SECTION 12 / 32 â€” 20260901_0012_inventory_barcode_addon.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 12 / 49 -- 20260901_0012_inventory_barcode_addon.sql
+-- ############################################################
 
 -- ====================================================================
 -- Migration 0012: Barcode Management & Inventory Movement Ledger Addon
@@ -2297,9 +2304,10 @@ WHERE id = 1
 
 COMMIT;
 
--- ============================================================
--- SECTION 13 / 32 â€” 20260903_0013_expense_tracker_addon.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 13 / 49 -- 20260903_0013_expense_tracker_addon.sql
+-- ############################################################
 
 -- ====================================================================
 -- Migration 0013: Expense Tracker & Category Management Addon
@@ -2318,14 +2326,15 @@ CREATE TABLE IF NOT EXISTS public.expense_categories (
 );
 
 -- 2. Seed Default Expense Categories
--- No conflict target on purpose: this section created
--- uq_expense_category_name UNIQUE (name), but section 28 (0029) drops that
+-- No conflict target on purpose: this file created
+-- uq_expense_category_name UNIQUE (name), but 20260930_0029 drops that
 -- constraint and replaces it with the branch-scoped unique index
 -- expense_categories_branch_name_unique (branch, LOWER(BTRIM(name))).
 -- A bare "ON CONFLICT DO NOTHING" matches both schemas, while the old
 -- "ON CONFLICT (name)" failed with 42P10 (no unique or exclusion
 -- constraint matching the ON CONFLICT specification) on every database
--- that had already run section 28 - i.e. on re-runs of this whole script.
+-- that had already run 0029 - i.e. on re-runs of this file or of
+-- RUN_ALL_MIGRATIONS.sql.
 INSERT INTO public.expense_categories (name, is_active) VALUES
   ('Maintenance', TRUE),
   ('Marketing', TRUE),
@@ -2406,9 +2415,10 @@ $$;
 
 COMMIT;
 
--- ============================================================
--- SECTION 14 / 32 â€” 20260904_0015_unregistered_category.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 14 / 49 -- 20260904_0015_unregistered_category.sql
+-- ############################################################
 
 -- ============================================================================
 -- Migration: 20260904_0015_unregistered_category.sql
@@ -2423,13 +2433,14 @@ BEGIN
     WHERE LOWER(name_en) = 'unregistered'
   ) THEN
     INSERT INTO public.categories (name_en, name_ta, is_active, sort_order)
-    VALUES ('Unregistered', 'à®ªà®¤à®¿à®µà¯à®šà¯†à®¯à¯à®¯à®ªà¯à®ªà®Ÿà®¾à®¤à®¤à¯', TRUE, 999);
+    VALUES ('Unregistered', 'பதிவுசெய்யப்படாதது', TRUE, 999);
   END IF;
 END $$;
 
--- ============================================================
--- SECTION 15 / 32 â€” 20260911_0016_rebrand_to_chaji_mens_wear.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 15 / 49 -- 20260911_0016_rebrand_to_chaji_mens_wear.sql
+-- ############################################################
 
 -- Migration: 20260911_0016_rebrand_to_chaji_mens_wear.sql
 -- Rebrand store details to YG ENTERPRISES and initialize branding storage bucket
@@ -2446,9 +2457,8 @@ SET name = 'YG ENTERPRISES',
     updated_at = NOW()
 WHERE id = 1
   -- Guarded: only rebrand a row that is still on a legacy / placeholder
-  -- identity (the 0001 default or the section 12 CLAD seed). A re-run
-  -- therefore never overwrites a profile the owner has since edited in
-  -- Store Settings.
+  -- identity (the 0001 default or the 0012 CLAD seed). A re-run therefore
+  -- never overwrites a profile the owner has since edited in Store Settings.
   AND COALESCE(email, '') IN (
         'mypurpleboutique05@gmail.com',
         'cladclothing26@gmail.com'
@@ -2486,9 +2496,10 @@ CREATE POLICY branding_portal_update ON storage.objects
 
 COMMIT;
 
--- ============================================================
--- SECTION 16 / 32 â€” 20260912_0017_update_store_address.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 16 / 49 -- 20260912_0017_update_store_address.sql
+-- ############################################################
 
 -- Migration: 20260912_0017_update_store_address.sql
 -- Update store address for YG ENTERPRISES
@@ -2499,8 +2510,8 @@ UPDATE public.store_settings
 SET address = '1892 A, bypass road, Sevoor,arani-632316',
     updated_at = NOW()
 WHERE id = 1
-  -- Guarded: same "legacy identity only" rule as sections 16 / 21, so a
-  -- re-run never moves the address of a profile the owner has edited.
+  -- Guarded: same "legacy identity only" rule as 0016 / 0021, so a re-run
+  -- never moves the address of a profile the owner has already edited.
   AND COALESCE(email, '') IN (
         'mypurpleboutique05@gmail.com',
         'cladclothing26@gmail.com',
@@ -2509,9 +2520,10 @@ WHERE id = 1
 
 COMMIT;
 
--- ============================================================
--- SECTION 17 / 32 â€” 20260917_0001_fix_soft_delete_unique_constraints.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 17 / 49 -- 20260917_0001_fix_soft_delete_unique_constraints.sql
+-- ############################################################
 
 -- Fix for products unique constraint
 DROP INDEX IF EXISTS public.products_category_name_unique;
@@ -2525,9 +2537,10 @@ CREATE UNIQUE INDEX product_variants_product_name_unique
   ON public.product_variants (product_id, LOWER(BTRIM(variant_name)))
   WHERE is_active = true;
 
--- ============================================================
--- SECTION 18 / 32 â€” 20260918_0018_advance_order_self_heal.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 18 / 49 -- 20260918_0018_advance_order_self_heal.sql
+-- ############################################################
 
 -- ============================================================
 -- Migration 0018: Advance order self-healing & status integrity
@@ -2740,9 +2753,10 @@ GRANT EXECUTE ON FUNCTION public.update_advance_order_status(uuid, text, text) T
 
 NOTIFY pgrst, 'reload schema';
 
--- ============================================================
--- SECTION 19 / 32 â€” 20260918_0019_robust_public_invoice_lookup.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 19 / 49 -- 20260918_0019_robust_public_invoice_lookup.sql
+-- ############################################################
 
 -- Migration: 20260918_0019_robust_public_invoice_lookup.sql
 -- Enables get_public_invoice_by_number to seamlessly match invoices regardless of:
@@ -2783,9 +2797,10 @@ GRANT EXECUTE ON FUNCTION public.get_public_invoice_by_number(TEXT) TO anon, aut
 
 NOTIFY pgrst, 'reload schema';
 
--- ============================================================
--- SECTION 20 / 32 â€” 20260924_0020_split_pos_branches.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 20 / 49 -- 20260924_0020_split_pos_branches.sql
+-- ############################################################
 
 -- ====================================================================
 -- Migration 0020: Split POS into 2 fully isolated branches (pos1 / pos2)
@@ -3399,7 +3414,7 @@ $$;
 GRANT EXECUTE ON FUNCTION public.create_advance_order(text,text,text,text,text,text,numeric,numeric,date,text,text,text,jsonb,text) TO anon, authenticated;
 
 -- Redefine the (self-healing) completion RPC to derive branch from the advance
--- order itself â€” safer than trusting a client-supplied branch â€” and to pull
+-- order itself — safer than trusting a client-supplied branch — and to pull
 -- the invoice number from that branch's sequence via get_next_invoice_no()
 -- instead of hitting the old shared invoice_number_seq directly (which would
 -- otherwise collide with regular POS sales once branches have separate sequences).
@@ -3550,7 +3565,7 @@ GRANT EXECUTE ON FUNCTION public.complete_advance_order_v2(uuid, text, numeric, 
 -- barcode_product_seq/barcode_variant_seq) so nothing about barcodes you've
 -- already generated or printed changes. POS 2 gets its own fresh sequences
 -- and a distinct 'P2P'/'P2V' prefix, so a scanned code instantly tells you
--- which branch it belongs to. Existing barcode_registry rows are untouched â€”
+-- which branch it belongs to. Existing barcode_registry rows are untouched —
 -- this only changes what NEW barcodes look like going forward.
 
 CREATE SEQUENCE IF NOT EXISTS public.barcode_product_seq_pos2 START WITH 10000001;
@@ -3827,16 +3842,17 @@ $$;
 
 COMMIT;
 
--- ============================================================
--- SECTION 21 / 32 â€” 20260925_0021_cleanup_legacy_chaji_data.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 21 / 49 -- 20260925_0021_cleanup_legacy_chaji_data.sql
+-- ############################################################
 
 -- ====================================================================
 -- Migration 0021: Remove legacy CHAJI MENS WEAR data before seeding the
 -- new YG Enterprises branch catalogs (migration 0022).
 --
 -- Scope, deliberately conservative:
---  - Clears the old product/variant/barcode/category catalog (all of it â€”
+--  - Clears the old product/variant/barcode/category catalog (all of it —
 --    every row currently in these tables predates the YG rebrand and is
 --    CHAJI menswear stock).
 --  - Resets the store_settings row (name/owner/phone/email/address) to
@@ -3844,7 +3860,7 @@ COMMIT;
 --  - Empties the unused 'branding' storage bucket created for CHAJI.
 --
 -- Deliberately NOT touched: `orders` / `order_items` (real historical
--- sales/financial records survive regardless of brand â€” order_items
+-- sales/financial records survive regardless of brand — order_items
 -- already stores product_name redundantly, and orders.product_id uses
 -- ON DELETE SET NULL, so deleting the old catalog does not corrupt past
 -- receipts) and `coupons` (not brand-specific).
@@ -3873,9 +3889,9 @@ SET name = 'YG ENTERPRISES',
     updated_at = NOW()
 WHERE id = 1
   -- Guarded: only while the row is still on a legacy / placeholder identity
-  -- (0001 default, section 12 CLAD seed or section 16 CHAJI rebrand). This is
-  -- the same self-healing rule 20261004_0033 uses, so a database that missed
-  -- this migration is still repaired, while a profile the owner has already
+  -- (0001 default, 0012 CLAD seed or 0016 CHAJI rebrand). This is the same
+  -- self-healing rule 20261004_0033 uses, so a database that missed this
+  -- migration is still repaired, while a profile the owner has already
   -- edited from Admin -> Store Settings is never overwritten.
   AND COALESCE(email, '') IN (
         'mypurpleboutique05@gmail.com',
@@ -3884,7 +3900,7 @@ WHERE id = 1
       );
 
 -- 3. NOTE: any leftover files in the 'branding' storage bucket (created for
--- CHAJI in migration 0016) are intentionally left alone here â€” Supabase
+-- CHAJI in migration 0016) are intentionally left alone here — Supabase
 -- blocks direct `DELETE FROM storage.objects` with a protective trigger
 -- ("Direct deletion from storage tables is not allowed"). Nothing in this
 -- app reads from that bucket, so stray files there are harmless; clear them
@@ -3893,9 +3909,10 @@ WHERE id = 1
 
 COMMIT;
 
--- ============================================================
--- SECTION 22 / 32 â€” 20260925_0022_seed_branch_starter_catalog.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 22 / 49 -- 20260925_0022_seed_branch_starter_catalog.sql
+-- ############################################################
 
 -- ====================================================================
 -- Migration 0021: Starter catalog for POS 1 (Jute & Wedding Bags) and
@@ -3928,7 +3945,7 @@ AND NOT EXISTS (
 );
 
 -- 2. Products ---------------------------------------------------------------
--- unit_type 'unit' / unit_label 'piece' â€” simple non-variant starter items.
+-- unit_type 'unit' / unit_label 'piece' — simple non-variant starter items.
 -- Prices are placeholders; edit them freely from Inventory once seeded.
 
 INSERT INTO public.products (
@@ -3943,7 +3960,7 @@ SELECT
   'unit', 'piece', 'piece', 1,
   v.stock, v.stock, 5, TRUE, v.sort_order
 FROM (VALUES
-  -- POS 1 Â· Jute & Wedding Bags / Wedding Cards -----------------------
+  -- POS 1 · Jute & Wedding Bags / Wedding Cards -----------------------
   ('Plain Jute Shopping Bag',          'Jute Bags',     'pos1', 150::numeric,  80::numeric, 180::numeric, 40::numeric, 1),
   ('Printed Jute Tote Bag',            'Jute Bags',     'pos1', 220::numeric, 120::numeric, 260::numeric, 30::numeric, 2),
   ('Floral Jute Tote Bag',             'Jute Bags',     'pos1', 250::numeric, 140::numeric, 300::numeric, 30::numeric, 3),
@@ -3955,7 +3972,7 @@ FROM (VALUES
   ('Floral Wedding Card with Envelope',   'Wedding Cards', 'pos1', 35::numeric, 18::numeric,  42::numeric, 150::numeric, 2),
   ('Premium Laser-Cut Wedding Card',      'Wedding Cards', 'pos1', 65::numeric, 35::numeric,  75::numeric, 100::numeric, 3),
 
-  -- POS 2 Â· Dresses / Ethnic Wear / Kids Wear -------------------------
+  -- POS 2 · Dresses / Ethnic Wear / Kids Wear -------------------------
   ('Floral Print Cotton Dress',        'Dresses',       'pos2', 799::numeric,  450::numeric,  999::numeric, 30::numeric, 1),
   ('A-Line Party Dress',               'Dresses',       'pos2', 1199::numeric, 700::numeric, 1499::numeric, 20::numeric, 2),
   ('Casual Maxi Dress',                'Dresses',       'pos2', 899::numeric,  520::numeric, 1099::numeric, 25::numeric, 3),
@@ -3983,9 +4000,10 @@ NOTIFY pgrst, 'reload schema';
 
 COMMIT;
 
--- ============================================================
--- SECTION 23 / 32 â€” 20260926_0023_branch_settings_and_attendance.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 23 / 49 -- 20260926_0023_branch_settings_and_attendance.sql
+-- ############################################################
 
 -- ====================================================================
 -- Migration 0023: Per-branch Store Settings + Staff Attendance
@@ -4118,9 +4136,10 @@ GRANT EXECUTE ON FUNCTION public.punch_attendance(UUID, TEXT) TO anon, authentic
 
 COMMIT;
 
--- ============================================================
--- SECTION 24 / 32 â€” 20260927_0024_pos2_fireworks_catalog.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 24 / 49 -- 20260927_0024_pos2_fireworks_catalog.sql
+-- ############################################################
 
 -- ====================================================================
 -- Migration 0024: Replace POS 2's starter catalog (clothing, seeded by
@@ -4250,9 +4269,10 @@ NOTIFY pgrst, 'reload schema';
 
 COMMIT;
 
--- ============================================================
--- SECTION 25 / 32 â€” 20260928_0025_portal_credentials.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 25 / 49 -- 20260928_0025_portal_credentials.sql
+-- ############################################################
 
 -- ====================================================================
 -- Migration 0025: Admin-editable portal passwords
@@ -4297,9 +4317,10 @@ NOTIFY pgrst, 'reload schema';
 
 COMMIT;
 
--- ============================================================
--- SECTION 26 / 32 â€” 20260929_0026_fix_null_remarks_checkout_error.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 26 / 49 -- 20260929_0026_fix_null_remarks_checkout_error.sql
+-- ############################################################
 
 -- ====================================================================
 -- Migration 0026: Fix "null value in column remarks... violates
@@ -4561,9 +4582,10 @@ NOTIFY pgrst, 'reload schema';
 
 COMMIT;
 
--- ============================================================
--- SECTION 27 / 32 â€” 20260930_0027_split_expenses_by_branch.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 27 / 49 -- 20260930_0027_split_expenses_by_branch.sql
+-- ############################################################
 
 -- ====================================================================
 -- Migration 0027: Split Expenses Ledger per branch
@@ -4642,56 +4664,104 @@ NOTIFY pgrst, 'reload schema';
 
 COMMIT;
 
--- ============================================================
--- SECTION 28 / 32 â€” 20260930_0029_isolate_coupons_and_expense_categories.sql
--- ============================================================
 
+-- ############################################################
+-- SECTION 28 / 49 -- 20260930_0029_isolate_coupons_and_expense_categories.sql
+-- ############################################################
+
+-- Keep every operational record and its taxonomy independent per POS branch.
+-- Legacy shared rows belong to POS 1, matching the original branch-split rule.
 BEGIN;
+
 ALTER TABLE public.coupons ADD COLUMN IF NOT EXISTS branch TEXT NOT NULL DEFAULT 'pos1';
 ALTER TABLE public.expense_categories ADD COLUMN IF NOT EXISTS branch TEXT NOT NULL DEFAULT 'pos1';
 ALTER TABLE public.expense_categories DROP CONSTRAINT IF EXISTS uq_expense_category_name;
+
 DO $$ BEGIN
   ALTER TABLE public.coupons ADD CONSTRAINT coupons_branch_check CHECK (branch IN ('pos1', 'pos2'));
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
   ALTER TABLE public.expense_categories ADD CONSTRAINT expense_categories_branch_check CHECK (branch IN ('pos1', 'pos2'));
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
 DROP INDEX IF EXISTS public.coupons_code_upper_unique;
-CREATE UNIQUE INDEX IF NOT EXISTS coupons_branch_code_upper_unique ON public.coupons (branch, UPPER(BTRIM(code)));
+CREATE UNIQUE INDEX IF NOT EXISTS coupons_branch_code_upper_unique
+  ON public.coupons (branch, UPPER(BTRIM(code)));
 CREATE INDEX IF NOT EXISTS coupons_branch_active_idx ON public.coupons(branch, is_active, created_at DESC);
-CREATE UNIQUE INDEX IF NOT EXISTS expense_categories_branch_name_unique ON public.expense_categories(branch, LOWER(BTRIM(name)));
+CREATE UNIQUE INDEX IF NOT EXISTS expense_categories_branch_name_unique
+  ON public.expense_categories(branch, LOWER(BTRIM(name)));
 CREATE INDEX IF NOT EXISTS expense_categories_branch_active_idx ON public.expense_categories(branch, is_active);
+
+-- Seed a separate POS 2 expense taxonomy while leaving POS 1's existing
+-- names and IDs intact.
 INSERT INTO public.expense_categories (name, is_active, branch)
 SELECT seed.name, TRUE, 'pos2'
 FROM (VALUES ('Maintenance'), ('Marketing'), ('Other'), ('Rent'), ('Salaries'), ('Supplies')) AS seed(name)
-WHERE NOT EXISTS (SELECT 1 FROM public.expense_categories c WHERE c.branch = 'pos2' AND LOWER(BTRIM(c.name)) = LOWER(BTRIM(seed.name)));
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.expense_categories c
+  WHERE c.branch = 'pos2' AND LOWER(BTRIM(c.name)) = LOWER(BTRIM(seed.name))
+);
+
+-- Existing checkout RPCs were written before coupons had a branch. Patch
+-- each installed checkout routine so usage is charged only to its POS coupon.
 DO $$
-DECLARE r RECORD; v_definition TEXT; v_updated TEXT;
+DECLARE
+  r RECORD;
+  v_definition TEXT;
+  v_updated TEXT;
 BEGIN
   FOR r IN
-    SELECT p.oid FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-    WHERE n.nspname = 'public' AND p.prokind = 'f'
+    SELECT p.oid
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.prokind = 'f'
       AND pg_get_functiondef(p.oid) ILIKE '%UPDATE public.coupons%'
       AND pg_get_functiondef(p.oid) ILIKE '%p_coupon_code%'
       AND pg_get_functiondef(p.oid) ILIKE '%v_branch%'
   LOOP
     v_definition := pg_get_functiondef(r.oid);
-    v_updated := replace(v_definition, 'WHERE UPPER(BTRIM(code)) = UPPER(BTRIM(p_coupon_code))',
-      'WHERE UPPER(BTRIM(code)) = UPPER(BTRIM(p_coupon_code)) AND branch = v_branch');
+    v_updated := replace(
+      v_definition,
+      'WHERE UPPER(BTRIM(code)) = UPPER(BTRIM(p_coupon_code))',
+      'WHERE UPPER(BTRIM(code)) = UPPER(BTRIM(p_coupon_code)) AND branch = v_branch'
+    );
     IF v_updated <> v_definition THEN EXECUTE v_updated; END IF;
   END LOOP;
 END $$;
 
+NOTIFY pgrst, 'reload schema';
 COMMIT;
 
--- ============================================================
--- SECTION 29 / 32 â€” 20261001_0030_hard_delete_inventory_item.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 29 / 49 -- 20261001_0028_add_website_url_to_store_settings.sql
+-- ############################################################
+
+-- ====================================================================
+-- Migration 0028: Add Website URL to Store Settings
+--
+-- Adds website_url column to store_settings table for storing the official
+-- company website URL, used in invoices and WhatsApp messages.
+-- ====================================================================
 
 BEGIN;
 
--- 0030: physically remove a product or variant and its inventory audit rows,
--- while preserving historical order-item snapshots.
+ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS website_url TEXT NOT NULL DEFAULT 'https://ygenterprises.co.in';
+
+-- Update both store settings rows with the official website
+UPDATE public.store_settings SET website_url = 'https://ygenterprises.co.in' WHERE branch IN ('pos1', 'pos2');
+
+COMMIT;
+
+
+-- ############################################################
+-- SECTION 30 / 49 -- 20261001_0030_hard_delete_inventory_item.sql
+-- ############################################################
+
+-- Permanently remove an inventory item together with its barcode and movement
+-- rows. Sales keep their historical line-item snapshots (product_id becomes
+-- NULL via the existing FK), so deleting a catalog item never rewrites invoices.
 CREATE OR REPLACE FUNCTION public.delete_inventory_item(
   p_product_id bigint,
   p_variant_id uuid DEFAULT NULL,
@@ -4702,42 +4772,63 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
-DECLARE v_branch text := CASE WHEN p_branch = 'pos2' THEN 'pos2' ELSE 'pos1' END;
+DECLARE
+  v_branch text := CASE WHEN p_branch = 'pos2' THEN 'pos2' ELSE 'pos1' END;
 BEGIN
   IF p_variant_id IS NOT NULL THEN
-    IF NOT EXISTS (SELECT 1 FROM public.product_variants WHERE id = p_variant_id AND product_id = p_product_id AND branch = v_branch) THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM public.product_variants
+      WHERE id = p_variant_id AND product_id = p_product_id AND branch = v_branch
+    ) THEN
       RAISE EXCEPTION 'Variant does not belong to the selected product and POS branch';
     END IF;
-    DELETE FROM public.inventory_movements WHERE variant_id = p_variant_id AND branch = v_branch;
-    DELETE FROM public.barcode_registry WHERE variant_id = p_variant_id AND product_id = p_product_id AND branch = v_branch;
-    DELETE FROM public.product_variants WHERE id = p_variant_id AND product_id = p_product_id AND branch = v_branch;
+
+    DELETE FROM public.inventory_movements
+    WHERE variant_id = p_variant_id AND branch = v_branch;
+
+    DELETE FROM public.barcode_registry
+    WHERE variant_id = p_variant_id AND product_id = p_product_id AND branch = v_branch;
+
+    DELETE FROM public.product_variants
+    WHERE id = p_variant_id AND product_id = p_product_id AND branch = v_branch;
     RETURN;
   END IF;
 
-  IF NOT EXISTS (SELECT 1 FROM public.products WHERE id = p_product_id AND branch = v_branch) THEN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.products WHERE id = p_product_id AND branch = v_branch
+  ) THEN
     RAISE EXCEPTION 'Product does not belong to the selected POS branch';
   END IF;
-  DELETE FROM public.inventory_movements WHERE branch = v_branch AND
-    (product_id = p_product_id OR variant_id IN (SELECT id FROM public.product_variants WHERE product_id = p_product_id AND branch = v_branch));
-  DELETE FROM public.barcode_registry WHERE product_id = p_product_id AND branch = v_branch;
-  DELETE FROM public.product_variants WHERE product_id = p_product_id AND branch = v_branch;
-  DELETE FROM public.products WHERE id = p_product_id AND branch = v_branch;
+
+  DELETE FROM public.inventory_movements
+  WHERE branch = v_branch
+    AND (product_id = p_product_id OR variant_id IN (
+      SELECT id FROM public.product_variants
+      WHERE product_id = p_product_id AND branch = v_branch
+    ));
+
+  DELETE FROM public.barcode_registry
+  WHERE product_id = p_product_id AND branch = v_branch;
+
+  DELETE FROM public.product_variants
+  WHERE product_id = p_product_id AND branch = v_branch;
+
+  DELETE FROM public.products
+  WHERE id = p_product_id AND branch = v_branch;
 END;
 $$;
-GRANT EXECUTE ON FUNCTION public.delete_inventory_item(bigint, uuid, text) TO anon, authenticated;
 
-COMMIT;
+GRANT EXECUTE ON FUNCTION public.delete_inventory_item(bigint, uuid, text)
+  TO anon, authenticated;
 
--- ============================================================
--- SECTION 30 / 32 â€” 20261002_0031_cascade_delete_inventory_movements.sql
--- ============================================================
 
-BEGIN;
+-- ############################################################
+-- SECTION 31 / 49 -- 20261002_0031_cascade_delete_inventory_movements.sql
+-- ############################################################
 
--- 0031: make inventory movement ledger rows disappear together with the
--- product or variant they belong to. Product / variant ids are unique and each
--- row belongs to exactly one POS branch, so POS 1 and POS 2 ledgers stay fully
--- separate.
+-- Make inventory movement ledger rows disappear together with the product or
+-- variant they belong to. Product / variant ids are unique and each row belongs
+-- to exactly one POS branch, so POS 1 and POS 2 ledgers stay fully separate.
 
 -- 1. Clean up orphaned ledger rows left behind by earlier deletions
 --    (the old ON DELETE SET NULL foreign keys blanked the links but kept rows).
@@ -4781,15 +4872,15 @@ CREATE TRIGGER delete_movements_for_product_trigger
 BEFORE DELETE ON public.products
 FOR EACH ROW EXECUTE FUNCTION public.delete_movements_for_product();
 
-COMMIT;
+NOTIFY pgrst, 'reload schema';
 
--- ============================================================
--- SECTION 31 / 32 â€” 20261003_0032_branch_isolation_integrity.sql
--- ============================================================
 
-BEGIN;
+-- ############################################################
+-- SECTION 32 / 49 -- 20261003_0032_branch_isolation_integrity.sql
+-- ############################################################
 
--- 0032: POS branch isolation integrity (backend guarantee)
+-- ====================================================================
+-- Migration 0032: POS branch isolation integrity (backend guarantee)
 --
 -- App-level queries are already branch-filtered, but nothing in the
 -- database stopped a client from writing a child row (variant, stock
@@ -4797,10 +4888,10 @@ BEGIN;
 -- Such a row would silently show up in the WRONG POS counter's catalog,
 -- stock analytics / stock ledger reports or barcode lookups.
 --
--- This section:
+-- This migration:
 --   1. Repairs any existing child row that disagrees with its parent.
---   2. Installs triggers keeping every child row's branch locked to the
---      branch of the product (or of the variant's product) it belongs to.
+--   2. Installs triggers that keep every child row's branch locked to the
+--      branch of the product (or variant's product) it belongs to.
 --
 -- Idempotent: safe to re-run.
 -- ====================================================================
@@ -4839,8 +4930,8 @@ WHERE m.product_id = p.id
   AND m.variant_id IS NULL
   AND m.branch <> p.branch;
 
+-- 2. Guard: a variant always belongs to its parent product's branch ---------
 
--- 0032: Guard: a variant always belongs to its parent product's branch.
 CREATE OR REPLACE FUNCTION public.enforce_variant_branch()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -4866,7 +4957,8 @@ CREATE TRIGGER enforce_variant_branch_trigger
 BEFORE INSERT OR UPDATE OF branch, product_id ON public.product_variants
 FOR EACH ROW EXECUTE FUNCTION public.enforce_variant_branch();
 
--- 0032: Guard: barcode registry rows follow their product's branch.
+-- 3. Guard: barcode registry rows follow their product's branch -------------
+
 CREATE OR REPLACE FUNCTION public.enforce_barcode_registry_branch()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -4892,10 +4984,10 @@ CREATE TRIGGER enforce_barcode_registry_branch_trigger
 BEFORE INSERT OR UPDATE OF branch, product_id ON public.barcode_registry
 FOR EACH ROW EXECUTE FUNCTION public.enforce_barcode_registry_branch();
 
-
--- 0032: Guard: stock movement ledger rows follow their product / variant.
+-- 4. Guard: stock movement ledger rows follow their product / variant -------
 -- This is what keeps per-branch stock analytics, stock history and
 -- low-stock alarms from ever counting another counter's stock.
+
 CREATE OR REPLACE FUNCTION public.enforce_inventory_movement_branch()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -4925,18 +5017,45 @@ CREATE TRIGGER enforce_inventory_movement_branch_trigger
 BEFORE INSERT OR UPDATE OF branch, product_id, variant_id ON public.inventory_movements
 FOR EACH ROW EXECUTE FUNCTION public.enforce_inventory_movement_branch();
 
-COMMIT;
+NOTIFY pgrst, 'reload schema';
 
--- ============================================================
--- SECTION 32 / 32 â€” 20261004_0033_repair_pos1_store_identity.sql
--- ============================================================
 
--- The POS 1 store_settings row still held the very first seed values
--- ("CLAD" / cladclothing26@gmail.com / Manapparai), which is why every
--- POS 1 invoice printed a CLAD header directly under the YG Enterprises
--- logo. Only rows still sitting on those legacy placeholders are
--- rewritten, so an identity already customised in Admin â†’ Store Settings
--- is never overwritten.
+-- ############################################################
+-- SECTION 33 / 49 -- 20261004_0033_repair_pos1_store_identity.sql
+-- ############################################################
+
+-- ====================================================================
+-- Migration 0033: Repair the POS 1 (id = 1) store identity
+--
+-- WHY
+-- The store_settings row for POS 1 still carries the very first seed
+-- values written by migration 20260901_0012 — "CLAD" / "Rubi krishna" /
+-- cladclothing26@gmail.com / "Manapparai, Trichy, Tamil Nadu - 621 306".
+-- The later rebrand migrations (0016, 0017, 0021) that were supposed to
+-- replace those details were never applied to this database, so every
+-- POS 1 invoice, advance receipt, thermal receipt, WhatsApp message and
+-- barcode label kept printing the legacy CLAD header directly under the
+-- YG Enterprises logo and above the "Thank you for shopping at
+-- YG ENTERPRISES!" footer.
+--
+-- WHY A GUARDED UPDATE (and not a blind overwrite)
+-- Admin → Store Settings writes the same columns at runtime, so a plain
+-- `SET name = ...WHERE branch = 'pos1'` could silently undo an identity
+-- the owner had already corrected by hand. This migration therefore only
+-- rewrites rows that are STILL on the legacy CLAD placeholders.
+--
+-- VALUES
+-- They match src/lib/brand.ts (the fallback the app already prints when a
+-- field is blank), migration 0021 and the POS 2 row, so the POS 1 invoice
+-- header now agrees with the website, the invoice footer and the other
+-- counter. The owner can still change any of it at runtime in
+-- Admin → Store Settings → Shop Profile; this migration won't fight that
+-- because the CLAD guard will no longer match.
+--
+-- SAFE / IDEMPOTENT: re-running finds nothing left to repair.
+-- Only the identity columns are touched — theme colour, logo, business
+-- type and Instagram handle are left exactly as they are.
+-- ====================================================================
 
 BEGIN;
 
@@ -4957,9 +5076,10 @@ COMMIT;
 
 NOTIFY pgrst, 'reload schema';
 
--- ============================================================
--- SECTION 34 / 34 -- 20261005_0034_repair_branch_aware_inventory_rpcs.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 34 / 49 -- 20261005_0034_repair_branch_aware_inventory_rpcs.sql
+-- ############################################################
 
 -- ====================================================================
 -- Migration 0034: Repair branch-aware inventory/barcode RPCs
@@ -5516,17 +5636,176 @@ COMMIT;
 
 NOTIFY pgrst, 'reload schema';
 
--- ============================================================
--- SECTION 35 / 35 â€” 20261007_0037_force_yg_store_identity.sql
--- ============================================================
 
--- Migration 0033 repaired only rows still matching the exact 0012 CLAD seed.
--- Rows on any other legacy identity (Purple Boutique / Chaji Mens Wear) or
--- partially edited CLAD rows survived it, so "View Invoice" on both counters
--- kept printing CLAD / Chaji details under the YG Enterprises logo. This
--- rewrites the identity columns of every store_settings row sitting on ANY
--- known legacy placeholder. Theme, logo, business type and Instagram handle
--- are left untouched, and a genuinely customised profile matches no marker.
+-- ############################################################
+-- SECTION 35 / 49 -- RUN_0035_PART1.sql  (migration 0035, split in three parts)
+-- ############################################################
+
+-- Split 1 of 3: coupon uniqueness must be per-branch, not global.
+-- Two plain statements, no plpgsql. Run this on its own.
+
+DROP INDEX IF EXISTS public.coupons_code_upper_unique;
+
+CREATE UNIQUE INDEX IF NOT EXISTS coupons_branch_code_upper_unique
+  ON public.coupons (branch, UPPER(BTRIM(code)));
+
+
+-- ############################################################
+-- SECTION 36 / 49 -- RUN_0035_PART2.sql  (migration 0035, split in three parts)
+-- ############################################################
+
+-- Split 2 of 3: variant + barcode_registry branch triggers.
+-- Both follow their parent product's branch, so they share one function.
+
+CREATE OR REPLACE FUNCTION public.enforce_branch_from_product()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE v_branch TEXT;
+BEGIN
+  IF NEW.product_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+  SELECT branch INTO v_branch FROM public.products WHERE id = NEW.product_id;
+  IF v_branch IS NOT NULL THEN
+    NEW.branch := CASE WHEN v_branch = 'pos2' THEN 'pos2' ELSE 'pos1' END;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS enforce_variant_branch_trigger ON public.product_variants;
+CREATE TRIGGER enforce_variant_branch_trigger
+BEFORE INSERT OR UPDATE OF branch, product_id ON public.product_variants
+FOR EACH ROW EXECUTE FUNCTION public.enforce_branch_from_product();
+
+DROP TRIGGER IF EXISTS enforce_barcode_registry_branch_trigger ON public.barcode_registry;
+CREATE TRIGGER enforce_barcode_registry_branch_trigger
+BEFORE INSERT OR UPDATE OF branch, product_id ON public.barcode_registry
+FOR EACH ROW EXECUTE FUNCTION public.enforce_branch_from_product();
+
+
+-- ############################################################
+-- SECTION 37 / 49 -- RUN_0035_PART3.sql  (migration 0035, split in three parts)
+-- ############################################################
+
+-- Split 3 of 3: stock-movement branch trigger.
+-- A movement follows its variant's branch, else its product's.
+-- This is the one that scopes stock history, analytics and low-stock alarms.
+
+CREATE OR REPLACE FUNCTION public.enforce_inventory_movement_branch()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE v_branch TEXT;
+BEGIN
+  IF NEW.variant_id IS NOT NULL THEN
+    SELECT branch INTO v_branch FROM public.product_variants WHERE id = NEW.variant_id;
+  END IF;
+
+  IF v_branch IS NULL AND NEW.product_id IS NOT NULL THEN
+    SELECT branch INTO v_branch FROM public.products WHERE id = NEW.product_id;
+  END IF;
+
+  IF v_branch IS NOT NULL THEN
+    NEW.branch := CASE WHEN v_branch = 'pos2' THEN 'pos2' ELSE 'pos1' END;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS enforce_inventory_movement_branch_trigger ON public.inventory_movements;
+CREATE TRIGGER enforce_inventory_movement_branch_trigger
+BEFORE INSERT OR UPDATE OF branch, product_id, variant_id ON public.inventory_movements
+FOR EACH ROW EXECUTE FUNCTION public.enforce_inventory_movement_branch();
+
+NOTIFY pgrst, 'reload schema';
+
+
+-- ############################################################
+-- SECTION 38 / 49 -- 20261006_0036_seed_ledger.sql
+-- ############################################################
+
+-- ====================================================================
+-- Migration 0036: Seed ledger so catalog seeds stop resurrecting deletes
+-- ====================================================================
+-- Problem
+-- -------
+-- The catalog seed migrations (0002, 0022, 0024) guarded their inserts
+-- with `WHERE NOT EXISTS (SELECT 1 FROM products WHERE <same name>)`.
+-- That guard is name-based, not run-based: once an operator DELETES a
+-- seeded product, the row is gone, the NOT EXISTS check passes again,
+-- and the next re-run of those files silently RE-CREATED the deleted
+-- product at its placeholder price/stock. Deleting a catalog item was
+-- therefore not durable.
+--
+-- Fix
+-- ---
+-- Introduce public.seed_ledger, a tiny run-once marker table. Each
+-- catalog seed now checks the ledger and returns early when its key is
+-- already recorded, so a re-run is a no-op no matter what the operator
+-- has since deleted. The per-row NOT EXISTS guards are kept as a
+-- belt-and-braces duplicate check for genuinely fresh databases.
+--
+-- This migration also BACKFILLS the ledger so that re-running the old
+-- seed files against an already-seeded database cannot resurrect the
+-- test catalog that was just cleared.
+-- ====================================================================
+
+BEGIN;
+
+CREATE TABLE IF NOT EXISTS public.seed_ledger (
+  seed_key      TEXT PRIMARY KEY,
+  applied_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE public.seed_ledger IS
+  'Run-once markers for catalog seed migrations. Prevents re-running a seed from recreating products an operator has deleted.';
+
+-- Backfill: mark the three catalog seeds as already applied so replaying
+-- 0002 / 0022 / 0024 on this database can no longer recreate seeded rows.
+INSERT INTO public.seed_ledger (seed_key) VALUES
+  ('20260716_0002_purple_boutique_catalog'),
+  ('20260925_0022_seed_branch_starter_catalog'),
+  ('20260927_0024_pos2_fireworks_catalog')
+ON CONFLICT (seed_key) DO NOTHING;
+
+COMMIT;
+
+NOTIFY pgrst, 'reload schema';
+
+
+-- ############################################################
+-- SECTION 39 / 49 -- 20261007_0037_force_yg_store_identity.sql
+-- ############################################################
+
+-- ===================================================================
+-- Migration 0037: Force YG Enterprises identity on every store_settings row
+-- ===================================================================
+--
+-- WHY
+-- Migration 0033 repaired only rows that still matched the exact 0012 seed
+-- ("clad" / cladclothing26@gmail.com). Any row that had been partially
+-- edited afterwards — or that sits on one of the other legacy identities
+-- seeded by 0001 (Purple Boutique, Malaysia address) and 0016 (Chaji Mens
+-- Wear) — was left untouched, so "View Invoice" on both POS 1 and POS 2
+-- kept printing CLAD / Chaji shop details directly under the YG
+-- Enterprises logo.
+--
+-- WHAT
+-- This migration rewrites the identity columns of EVERY store_settings row
+-- that is still on ANY known legacy placeholder (name, owner, phone, email
+-- or address). Rows the owner has genuinely customised in
+-- Admin -> Store Settings are matched by no marker and are left alone.
+-- Theme colour, logo, business type, Instagram handle and GST flag are
+-- never touched.
+--
+-- SAFE / IDEMPOTENT: re-running finds nothing left to repair.
+-- ===================================================================
 
 BEGIN;
 
@@ -5537,9 +5816,10 @@ SET name       = 'YG ENTERPRISES',
     email      = 'ygenterprises2000@gmail.com',
     address    = '#189, N.S.C. Bose Road, (Opp. Bus Depot, Hotel Sankar Cafe Building), Chennai - 600 001',
     updated_at = NOW()
--- 'yg enterprises' is deliberately NOT matched: it is the current brand name, so
--- matching on it would let a re-run reset a phone/address the owner has already
--- customised. Only unambiguous legacy markers are matched.
+-- NOTE: 'yg enterprises' is deliberately NOT in the name list. Matching on the
+-- current brand name alone is too weak a signal — it would let a re-run of this
+-- migration reset a phone/address the owner has legitimately customised in
+-- Admin -> Store Settings. Only unambiguous legacy markers are matched.
 WHERE LOWER(BTRIM(COALESCE(name,       ''))) IN ('clad', 'chaji', 'chaji mens wear', 'purple boutique')
    OR LOWER(BTRIM(COALESCE(owner_name, ''))) IN ('clad', 'rubi krishna', 'chandru ajitha')
    OR LOWER(BTRIM(COALESCE(email,      ''))) IN (
@@ -5560,9 +5840,9 @@ COMMIT;
 NOTIFY pgrst, 'reload schema';
 
 
--- ============================================================
--- SECTION 36 / 36 -- 20261008_0038_advance_order_branch_isolation.sql
--- ============================================================
+-- ############################################################
+-- SECTION 40 / 49 -- 20261008_0038_advance_order_branch_isolation.sql
+-- ############################################################
 
 -- ===================================================================
 -- Migration 0038: Keep completed advance-order bills on their own POS
@@ -5782,61 +6062,10 @@ COMMIT;
 
 NOTIFY pgrst, 'reload schema';
 
--- ============================================================
--- SECTION 37 / 37 -- 20261006_0036_seed_ledger.sql
--- ============================================================
 
--- ====================================================================
--- Migration 0036: Seed ledger so catalog seeds stop resurrecting deletes
--- ====================================================================
--- Problem
--- -------
--- The catalog seed migrations (0002, 0022, 0024) guarded their inserts
--- with `WHERE NOT EXISTS (SELECT 1 FROM products WHERE <same name>)`.
--- That guard is name-based, not run-based: once an operator DELETES a
--- seeded product, the row is gone, the NOT EXISTS check passes again,
--- and the next re-run of those files silently RE-CREATED the deleted
--- product at its placeholder price/stock. Deleting a catalog item was
--- therefore not durable.
---
--- Fix
--- ---
--- Introduce public.seed_ledger, a tiny run-once marker table. Each
--- catalog seed now checks the ledger and returns early when its key is
--- already recorded, so a re-run is a no-op no matter what the operator
--- has since deleted. The per-row NOT EXISTS guards are kept as a
--- belt-and-braces duplicate check for genuinely fresh databases.
---
--- This migration also BACKFILLS the ledger so that re-running the old
--- seed files against an already-seeded database cannot resurrect the
--- test catalog that was just cleared.
--- ====================================================================
-
-BEGIN;
-
-CREATE TABLE IF NOT EXISTS public.seed_ledger (
-  seed_key      TEXT PRIMARY KEY,
-  applied_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-COMMENT ON TABLE public.seed_ledger IS
-  'Run-once markers for catalog seed migrations. Prevents re-running a seed from recreating products an operator has deleted.';
-
--- Backfill: mark the three catalog seeds as already applied so replaying
--- 0002 / 0022 / 0024 on this database can no longer recreate seeded rows.
-INSERT INTO public.seed_ledger (seed_key) VALUES
-  ('20260716_0002_purple_boutique_catalog'),
-  ('20260925_0022_seed_branch_starter_catalog'),
-  ('20260927_0024_pos2_fireworks_catalog')
-ON CONFLICT (seed_key) DO NOTHING;
-
-COMMIT;
-
-NOTIFY pgrst, 'reload schema';
-
--- ============================================================
--- SECTION 38 / 38 -- 20261009_0039_branch_scoped_coupons_barcodes_categories.sql
--- ============================================================
+-- ############################################################
+-- SECTION 41 / 49 -- 20261009_0039_branch_scoped_coupons_barcodes_categories.sql
+-- ############################################################
 
 -- ===================================================================
 -- Migration 0039: Finish POS 1 / POS 2 isolation for coupons,
@@ -5971,9 +6200,10 @@ COMMIT;
 
 NOTIFY pgrst, 'reload schema';
 
--- ============================================================
--- SECTION 39 / 39 -- 20261010_0040_advance_order_completion_deducts_stock.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 42 / 49 -- 20261010_0040_advance_order_completion_deducts_stock.sql
+-- ############################################################
 
 -- ===================================================================
 -- Migration 0040: Completing an advance order deducts its stock
@@ -6285,9 +6515,10 @@ COMMIT;
 
 NOTIFY pgrst, 'reload schema';
 
--- ============================================================
--- SECTION 40 / 40 -- 20261011_0041_remove_jewellery_schema_restore_yg.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 43 / 49 -- 20261011_0041_remove_jewellery_schema_restore_yg.sql
+-- ############################################################
 
 -- ===================================================================
 -- Migration 0041: Undo the two Jewellery POS scripts, restore YG
@@ -7865,9 +8096,10 @@ COMMIT;
 
 NOTIFY pgrst, 'reload schema';
 
--- ============================================================
--- SECTION 41 / 41 -- 20261012_0042_restart_invoice_numbers.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 44 / 49 -- 20261012_0042_restart_invoice_numbers.sql
+-- ############################################################
 
 -- ===================================================================
 -- Migration 0042: Restart each POS's invoice numbers from the start
@@ -7917,9 +8149,10 @@ SELECT
   (SELECT CASE WHEN is_called THEN last_value + 1 ELSE last_value END FROM public.invoice_number_seq_pos1) AS pos1_next_bill,
   (SELECT CASE WHEN is_called THEN last_value + 1 ELSE last_value END FROM public.invoice_number_seq_pos2) AS pos2_next_bill;
 
--- ============================================================
--- SECTION 42 / 42 -- 20261013_0043_store_gstin.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 45 / 49 -- 20261013_0043_store_gstin.sql
+-- ############################################################
 
 -- ===================================================================
 -- Migration 0043: GST number (GSTIN) per POS
@@ -7953,9 +8186,10 @@ NOTIFY pgrst, 'reload schema';
 
 SELECT branch, gstin FROM public.store_settings ORDER BY branch;
 
--- ============================================================
--- SECTION 43 / 43 -- 20261014_0044_store_gst_rate.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 46 / 49 -- 20261014_0044_store_gst_rate.sql
+-- ############################################################
 
 -- ===================================================================
 -- Migration 0044: One GST rate per POS, applied to every bill
@@ -7999,9 +8233,10 @@ NOTIFY pgrst, 'reload schema';
 
 SELECT branch, gst_enabled, gst_rate FROM public.store_settings ORDER BY branch;
 
--- ============================================================
--- SECTION 44 / 44 -- 20261028_0045_pos2_invoice_numbers_from_one.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 47 / 49 -- 20261028_0045_pos2_invoice_numbers_from_one.sql
+-- ############################################################
 
 -- ===================================================================
 -- Migration 0045: Fireworks (POS 2) invoice numbers start again from 1
@@ -8046,9 +8281,10 @@ SELECT
   (SELECT CASE WHEN is_called THEN last_value + 1 ELSE last_value END FROM public.invoice_number_seq_pos1) AS pos1_next_bill,
   (SELECT CASE WHEN is_called THEN last_value + 1 ELSE last_value END FROM public.invoice_number_seq_pos2) AS pos2_next_bill;
 
--- ============================================================
--- SECTION 45 / 46 -- 20261101_0046_store_google_review_url.sql
--- ============================================================
+
+-- ############################################################
+-- SECTION 48 / 49 -- 20261101_0046_store_google_review_url.sql
+-- ############################################################
 
 -- ===================================================================
 -- Migration 0046: Google review link per POS
@@ -8068,8 +8304,9 @@ NOTIFY pgrst, 'reload schema';
 
 SELECT branch, google_review_url FROM public.store_settings ORDER BY branch;
 
+
 -- ############################################################
--- SECTION 46 / 46 -- 20261110_0047_pos3_christmas_branch.sql
+-- SECTION 49 / 49 -- 20261110_0047_pos3_christmas_branch.sql
 -- ############################################################
 
 -- ===================================================================
