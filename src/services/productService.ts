@@ -40,8 +40,17 @@ export async function updateItemPrice(params: {
   newPrice: number
   newCostPrice?: number
   branch: PosBranch
+  /** Christmas POS only: wholesale price lives on the product row */
+  newWholesalePrice?: number | null
+  productId?: number
 }): Promise<void> {
   if (params.newPrice < 0) throw new Error('Price cannot be negative')
+  if (params.branch === 'pos3' && params.newWholesalePrice !== undefined) {
+    const pid = params.entityType === 'product' ? Number(params.id) : params.productId
+    if (pid == null) throw new Error('Product not found for wholesale price')
+    const { error: wErr } = await supabase.from('products').update({ wholesale_price: params.newWholesalePrice, updated_at: new Date().toISOString() }).eq('id', pid).eq('branch', 'pos3')
+    if (wErr) throw wErr
+  }
 
   if (params.entityType === 'variant') {
     const updatePayload: Record<string, unknown> = {

@@ -422,7 +422,7 @@ export const InventoryTable: React.FC = () => {
                         <th className="py-3.5 px-4 text-left w-[140px] whitespace-nowrap">Barcode</th>
                         <th className="py-3.5 px-4 text-left w-[130px] whitespace-nowrap">Category</th>
                         <th className="py-3.5 px-4 text-center w-[130px] whitespace-nowrap">Stock Level</th>
-                        <th className="py-3.5 px-4 text-right w-[130px] whitespace-nowrap">Selling Price</th>
+                        <th className="py-3.5 px-4 text-right w-[130px] whitespace-nowrap">{branch === 'pos3' ? 'Retail / Wholesale' : 'Selling Price'}</th>
                         <th className="py-3.5 px-4 text-right w-[180px] whitespace-nowrap">Actions</th>
                       </tr>
                     </thead>
@@ -481,7 +481,14 @@ export const InventoryTable: React.FC = () => {
                           {/* Price */}
                           <td className="py-3.5 px-4 text-right align-middle font-black text-xs text-gray-900 tabular-nums whitespace-nowrap">
                             <div className="inline-flex items-center justify-end gap-1.5 group">
-                              <span>{formatCurrency(item.price)}</span>
+                              {branch === 'pos3' ? (
+                                <span className="flex flex-col items-end leading-tight">
+                                  <span>R {formatCurrency(item.price)}</span>
+                                  <span className="text-[10px] font-bold text-gray-500">W {item.wholesale_price != null ? formatCurrency(item.wholesale_price) : '--'}</span>
+                                </span>
+                              ) : (
+                                <span>{formatCurrency(item.price)}</span>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => setPriceModalItem(item)}
@@ -653,6 +660,7 @@ export const InventoryTable: React.FC = () => {
                   ? {
                       ...it,
                       price: updated.price,
+                      wholesale_price: updated.wholesale_price ?? it.wholesale_price,
                       purchase_price: updated.cost_price ?? it.purchase_price,
                     }
                   : it

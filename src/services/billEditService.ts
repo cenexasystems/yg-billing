@@ -15,6 +15,8 @@ export type BillEditLine = {
   stocked: boolean
   productId: number | null
   variantId: string | null
+  /** Set for an item added during the edit (picked from inventory) */
+  added?: BillLine
 }
 
 export type BillTotals = {
@@ -98,13 +100,45 @@ export async function saveEditedBill(params: {
   const invoiceLabel = formatInvoiceNo(params.invoiceNo)
 
   const kept = new Map(lines.map((l) => [l.index, l]))
+  const addedLines = params.editItems ? lines.filter((l) => l.added) : []
   const newItems: BillLine[] = params.editItems
-    ? originalItems.flatMap((orig, index) => {
-        const l = kept.get(index)
-        if (!l) return []
-        return [{ ...orig, quantity: l.qty, base_price: l.price, line_total: round2(l.qty * l.price) }]
-      })
+    ? [
+        ...originalItems.flatMap((orig, index) => {
+          const l = kept.get(index)
+          if (!l) return []
+          return [{ ...orig, quantity: l.qty, base_price: l.price, line_total: round2(l.qty * l.price) }]
+        }),
+        ...addedLines.map((l) => ({ ...l.added!, quantity: l.qty, base_price: l.price, line_total: round2(l.qty * l.price) })),
+      ]
     : originalItems
+
+  // Stock that must change: put back what was removed, take what was added.
+  // Checked BEFORE the bill is saved so an oversell never half-saves.
+  const deltas = new Map<string, { productId: number; variantId: string | null; name: string; delta: number }>()
+  const addDelta = (line: BillLine, before: number, after: number) => {
+    if (!params.editItems || !isStockedLine(line) || after === before) return
+    const key = `${line.product_id}|${line.variant_id ?? ''}`
+    const cur = deltas.get(key) || { productId: Number(line.product_id), variantId: line.variant_id ? String(line.variant_id) : null, name: String(line.name || 'Item'), delta: 0 }
+    cur.delta += after - before
+    deltas.set(key, cur)
+  }
+  originalItems.forEach((orig, index) => addDelta(orig, Number(orig.quantity ?? orig.qty ?? 0) || 0, kept.get(index)?.qty ?? 0))
+  addedLines.forEach((l) => addDelta(l.added!, 0, l.qty))
+
+  const readStock = async (d: { productId: number; variantId: string | null }) => {
+    const row = d.variantId
+      ? await supabase.from('product_variants').select('stock').eq('id', d.variantId).eq('branch', branch).maybeSingle()
+      : await supabase.from('products').select('stock_quantity').eq('id', d.productId).eq('branch', branch).maybeSingle()
+    if (row.error || !row.data) throw row.error || new Error('not found')
+    const r = row.data as Record<string, unknown>
+    return Number(r.stock ?? r.stock_quantity ?? 0) || 0
+  }
+  for (const d of deltas.values()) {
+    if (d.delta <= 0) continue
+    let available: number
+    try { available = await readStock(d) } catch { throw new Error(`"${d.name}" was not found in this POS's inventory.`) }
+    if (available < d.delta) throw new Error(`Not enough stock for "${d.name}" (in stock: ${available}, extra needed: ${d.delta}).`)
+  }
 
   const changes: Record<string, unknown> = {
     customer_name: params.customerName.trim(),
@@ -159,30 +193,31 @@ export async function saveEditedBill(params: {
         }).eq('id', row.id)
       }
     }
+    if (addedLines.length) {
+      const { error: insErr } = await supabase.from('order_items').insert(addedLines.map((l) => {
+        const a = l.added!
+        return {
+          order_id: orderId,
+          product_id: a.product_id ?? null,
+          variant_id: a.variant_id ?? null,
+          product_name: l.name, name: l.name,
+          quantity: l.qty,
+          unit: a.unit || 'piece', unit_type: a.unit_type || 'unit', base_quantity: a.base_quantity ?? 1,
+          base_price: l.price, unit_price: l.price, line_total: round2(l.qty * l.price),
+          is_manual: false, source: 'catalogue', category: a.category ?? null,
+        }
+      }))
+      if (insErr) throw insErr
+    }
   } catch {
     warnings.push('Item rows for reports could not be fully updated.')
   }
 
-  // 3. Stock: put back what was removed, take what was added
-  const deltas = new Map<string, { productId: number; variantId: string | null; name: string; delta: number }>()
-  originalItems.forEach((orig, index) => {
-    if (!isStockedLine(orig)) return
-    const before = Number(orig.quantity ?? orig.qty ?? 0) || 0
-    const after = kept.get(index)?.qty ?? 0
-    if (after === before) return
-    const key = `${orig.product_id}|${orig.variant_id ?? ''}`
-    const cur = deltas.get(key) || { productId: Number(orig.product_id), variantId: orig.variant_id ? String(orig.variant_id) : null, name: String(orig.name || 'Item'), delta: 0 }
-    cur.delta += after - before
-    deltas.set(key, cur)
-  })
+  // 3. Stock
   for (const d of deltas.values()) {
     if (d.delta === 0) continue
     try {
-      const stockRow = d.variantId
-        ? await supabase.from('product_variants').select('stock').eq('id', d.variantId).eq('branch', branch).maybeSingle()
-        : await supabase.from('products').select('stock_quantity').eq('id', d.productId).eq('branch', branch).maybeSingle()
-      if (stockRow.error || !stockRow.data) throw stockRow.error || new Error('not found')
-      const current = Number((stockRow.data as Record<string, unknown>).stock ?? (stockRow.data as Record<string, unknown>).stock_quantity ?? 0) || 0
+      const current = await readStock(d)
       const { error: adjErr } = await supabase.rpc('adjust_inventory_stock', {
         p_product_id: d.productId,
         p_variant_id: d.variantId,

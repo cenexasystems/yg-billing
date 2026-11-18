@@ -9,12 +9,14 @@ interface Props {
   isOpen: boolean
   item: InventoryStockItem | null
   onClose: () => void
-  onSuccess: (updated: { id: string; price: number; cost_price?: number }) => void
+  onSuccess: (updated: { id: string; price: number; cost_price?: number; wholesale_price?: number }) => void
 }
 
 export const QuickPriceModal: React.FC<Props> = ({ isOpen, item, onClose, onSuccess }) => {
   const branch = useAdminAuthStore((state) => resolveBranch(state.activeBranch))
   const [sellingPrice, setSellingPrice] = useState<string>(item ? String(item.price ?? '') : '')
+  const [wholesalePrice, setWholesalePrice] = useState<string>(item?.wholesale_price != null ? String(item.wholesale_price) : '')
+  const isChristmas = branch === 'pos3'
   const [costPrice, setCostPrice] = useState<string>(
     item && item.purchase_price !== undefined ? String(item.purchase_price) : ''
   )
@@ -25,6 +27,7 @@ export const QuickPriceModal: React.FC<Props> = ({ isOpen, item, onClose, onSucc
   useEffect(() => {
     if (item) {
       setSellingPrice(String(item.price ?? ''))
+      setWholesalePrice(item.wholesale_price != null ? String(item.wholesale_price) : '')
       setCostPrice(item.purchase_price !== undefined ? String(item.purchase_price) : '')
       setError('')
     }
@@ -58,6 +61,12 @@ export const QuickPriceModal: React.FC<Props> = ({ isOpen, item, onClose, onSucc
       return
     }
 
+    const numWholesale = isChristmas ? Number(wholesalePrice) : undefined
+    if (isChristmas && (wholesalePrice.trim() === '' || isNaN(numWholesale as number) || (numWholesale as number) < 0)) {
+      setError('Please enter a valid wholesale price.')
+      return
+    }
+
     const numCost = costPrice.trim() !== '' ? Number(costPrice) : undefined
     if (numCost !== undefined && (isNaN(numCost) || numCost < 0)) {
       setError('Please enter a valid cost price.')
@@ -74,12 +83,15 @@ export const QuickPriceModal: React.FC<Props> = ({ isOpen, item, onClose, onSucc
         newPrice: numPrice,
         newCostPrice: numCost,
         branch,
+        newWholesalePrice: isChristmas ? numWholesale : undefined,
+        productId: item.product_id,
       })
 
       onSuccess({
         id: item.id,
         price: numPrice,
         cost_price: numCost,
+        wholesale_price: isChristmas ? numWholesale : undefined,
       })
       onClose()
     } catch (err: unknown) {
@@ -148,7 +160,7 @@ export const QuickPriceModal: React.FC<Props> = ({ isOpen, item, onClose, onSucc
 
             <div>
               <label className="block font-bold text-[#374151] mb-1.5">
-                Selling Price (₹) *
+                {isChristmas ? 'Retail Price (₹) *' : 'Selling Price (₹) *'}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500 font-bold">
@@ -170,6 +182,24 @@ export const QuickPriceModal: React.FC<Props> = ({ isOpen, item, onClose, onSucc
                 Reflected immediately in POS scanning &amp; digital invoice
               </p>
             </div>
+
+            {isChristmas && (
+              <div>
+                <label className="block font-bold text-[#374151] mb-1.5">Wholesale Price (₹) *</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500 font-bold">
+                    <IndianRupee className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="number" step="0.01" min="0" required
+                    value={wholesalePrice}
+                    onChange={(e) => setWholesalePrice(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-black text-gray-900 focus:outline-none focus:border-[#7A1220] transition-colors"
+                  />
+                </div>
+              </div>
+            )}
 
             <div>
               <label className="block font-bold text-[#374151] mb-1.5">

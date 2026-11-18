@@ -7,7 +7,7 @@ import {
   Package, Search, RefreshCw, ShieldCheck, ShieldOff, Trophy,
   MessageCircle, ChevronDown, Eye, FileText, Printer, MoreVertical, X, Layers, Receipt,
   SlidersHorizontal, Tag, Ticket, Percent, CheckCircle2, Info, Sparkles,
-  Globe, Users, Store, ArrowLeft,
+  Globe, Users, Store, ArrowLeft, Plus,
 } from 'lucide-react'
 
 // Custom Malaysian Ringgit icon — replaces the generic dollar-sign icon
@@ -53,6 +53,7 @@ import { invoicePdfFile } from '../lib/invoicePdf'
 import { formatPhoneForCSV, formatPhoneForDisplay, toWhatsAppUrl } from '../lib/phone'
 import { buildFireworksAdvanceMessage } from '../lib/advanceWhatsApp'
 import { findAdvanceOrderByCompletedOrderId } from '../services/advanceOrderService'
+import { inventoryService, type InventoryStockItem } from '../services/inventoryService'
 import { billGstRate, calcBillTotals, saveEditedBill, toEditLines, type BillLine } from '../services/billEditService'
 // toWhatsAppUrl removed - using direct link building in handlers
 import { createVariant, updateVariant, deleteVariant, setDefaultVariant, type ProductVariant } from '../services/variantService'
@@ -277,7 +278,7 @@ export default function Dashboard() {
   // Fireworks (admin and staff): edit a saved bill - details, payment, items, discount
 
   type PayKind = 'cash' | 'qr' | 'card'
-  type EditRow = { index: number; name: string; qty: string; price: string; stocked: boolean }
+  type EditRow = { index: number; name: string; qty: string; price: string; stocked: boolean; added?: BillLine }
   const [billEdit, setBillEdit] = useState<{
     order: DashboardOrder; name: string; phone: string; method: PayKind | 'split'
     p1Type: PayKind; p1Amount: string; p2Type: PayKind
@@ -286,6 +287,19 @@ export default function Dashboard() {
     saving: boolean; error: string
   } | null>(null)
   useBodyScrollLock(Boolean(invoicePreviewOrder))
+
+  // Bill edit: pick extra items from this POS's inventory
+  const [billAddOpen, setBillAddOpen] = useState(false)
+  const [billAddSearch, setBillAddSearch] = useState('')
+  const [billAddItems, setBillAddItems] = useState<InventoryStockItem[]>([])
+  const [billAddLoading, setBillAddLoading] = useState(false)
+  const openBillAdd = async () => {
+    setBillAddOpen(true)
+    setBillAddSearch('')
+    setBillAddLoading(true)
+    try { setBillAddItems(await inventoryService.fetchInventoryItems(branch)) } catch { setBillAddItems([]) }
+    setBillAddLoading(false)
+  }
 
   // WA detail expansion
   const [waExpandedId, setWaExpandedId] = useState<string | null>(null)
@@ -991,6 +1005,7 @@ export default function Dashboard() {
       saving: false,
       error: '',
     })
+    setBillAddOpen(false)
   }
 
   const billEditTotals = (be: NonNullable<typeof billEdit>) => be.editItems
@@ -1032,7 +1047,7 @@ export default function Dashboard() {
         originalItems: billEdit.originalItems,
         lines: billEdit.rows.map(r => ({
           index: r.index, name: r.name, qty: Number(r.qty) || 0, price: Number(r.price) || 0, stocked: r.stocked,
-          productId: null, variantId: null,
+          productId: null, variantId: null, added: r.added,
         })),
         totals: totals || { subtotal: 0, couponDiscount: 0, manualDiscount: 0, gst: 0, delivery: 0, total },
         customerName: billEdit.name,
@@ -1558,7 +1573,7 @@ export default function Dashboard() {
         name: prodForm.name.trim(), name_ta: prodForm.nameTa.trim(), tamil_name: prodForm.nameTa.trim(),
         category: prodForm.category.trim(), category_id: prodForm.categoryId || null,
         remedy: prodForm.remedy, price: toNumber(prodForm.price, 0),
-        offer_price: prodForm.offerPrice === '' ? null : toNumber(prodForm.offerPrice, 0),
+        offer_price: branch === 'pos3' || prodForm.offerPrice === '' ? null : toNumber(prodForm.offerPrice, 0),
         purchase_price: prodForm.purchasePrice === '' ? null : toNumber(prodForm.purchasePrice, 0),
         mrp: prodForm.mrp === '' ? null : toNumber(prodForm.mrp, 0),
         // Wholesale price exists on the Christmas POS only
@@ -4023,7 +4038,7 @@ export default function Dashboard() {
                       placeholder="எ.கா. மஞ்சள் பொடி" value={prodForm.nameTa} onChange={e => setProdForm(f => ({...f, nameTa: e.target.value}))} />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-black uppercase text-[#6B7280] tracking-wider mb-1">{l('Price (INR)', 'விலை (INR)')} *</label>
+                    <label className="block text-[11px] font-black uppercase text-[#6B7280] tracking-wider mb-1">{branch === 'pos3' ? 'Retail Price (INR)' : l('Price (INR)', 'விலை (INR)')} *</label>
                     <input required type="number" min="0" step="0.01"
                       className="w-full px-4 py-2.5 bg-[#FAFAFA] border border-[#F3F4F6] focus:border-[#D4AF37] rounded-xl text-[13px] font-bold outline-none transition-colors"
                       value={prodForm.price} onChange={e => setProdForm(f => ({...f, price: Number(e.target.value)}))} />
@@ -4039,13 +4054,14 @@ export default function Dashboard() {
                   </div>
                   {branch === 'pos3' && (
                     <div>
-                      <label className="block text-[11px] font-black uppercase text-[#6B7280] tracking-wider mb-1">Wholesale Price (INR)</label>
-                      <input type="number" min="0" step="0.01"
+                      <label className="block text-[11px] font-black uppercase text-[#6B7280] tracking-wider mb-1">Wholesale Price (INR) *</label>
+                      <input required type="number" min="0" step="0.01"
                         className="w-full px-4 py-2.5 bg-[#FAFAFA] border border-[#F3F4F6] focus:border-[#D4AF37] rounded-xl text-[13px] font-bold outline-none transition-colors"
-                        placeholder="Printed on the barcode label next to the retail price"
+                        placeholder="Used for wholesale bills and printed on the barcode label"
                         value={prodForm.wholesalePrice} onChange={e => setProdForm(f => ({...f, wholesalePrice: e.target.value}))} />
                     </div>
                   )}
+                  {branch !== 'pos3' && (<>
                   <div>
                     <label className="block text-[11px] font-black uppercase text-[#6B7280] tracking-wider mb-1">{l('MRP (INR)', 'MRP (INR)')}</label>
                     <input type="number" min="0" step="0.01"
@@ -4060,6 +4076,7 @@ export default function Dashboard() {
                       placeholder="Leave blank for no discount"
                       value={prodForm.offerPrice} onChange={e => setProdForm(f => ({...f, offerPrice: e.target.value}))} />
                   </div>
+                  </>)}
                   <div>
                     <label className="block text-[11px] font-black uppercase text-[#6B7280] tracking-wider mb-1">{l('SKU', 'SKU')}</label>
                     <input className="w-full px-4 py-2.5 bg-[#FAFAFA] border border-[#F3F4F6] focus:border-[#D4AF37] rounded-xl text-[13px] font-bold outline-none transition-colors"
@@ -4342,7 +4359,7 @@ export default function Dashboard() {
                           onChange={e => setVariantForm(f => ({...f, mrp: e.target.value}))} />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-black uppercase tracking-wider text-[#6B7280] mb-1">{l('Selling Price (INR) *', 'விற்பனை விலை *')}</label>
+                        <label className="block text-[11px] font-black uppercase tracking-wider text-[#6B7280] mb-1">{branch === 'pos3' ? 'Retail Price (INR) *' : l('Selling Price (INR) *', 'விற்பனை விலை *')}</label>
                         <input required type="number" min="0" step="0.01"
                           className="w-full px-4 py-2.5 bg-white rounded-xl border border-[#D1D5DB] text-[13px] font-bold outline-none focus:border-[#D4AF37] transition-colors shadow-sm"
                           placeholder="40"
@@ -4957,6 +4974,45 @@ export default function Dashboard() {
                       </div>
                     ))}
                   </div>
+
+                  <button type="button" onClick={() => (billAddOpen ? setBillAddOpen(false) : void openBillAdd())}
+                    className="mt-2 flex h-9 w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-gray-300 text-xs font-black text-gray-700 hover:bg-gray-50">
+                    <Plus size={14} /> {billAddOpen ? 'Close inventory' : 'Add item from inventory'}
+                  </button>
+                  {billAddOpen && (
+                    <div className="mt-2 rounded-xl border border-gray-200 p-2">
+                      <input autoFocus value={billAddSearch} onChange={e => setBillAddSearch(e.target.value)} placeholder="Search name or barcode"
+                        className="mb-2 h-9 w-full rounded-lg border border-gray-200 px-3 text-xs font-bold outline-none" />
+                      <div className="max-h-48 space-y-1 overflow-y-auto">
+                        {billAddLoading && <p className="p-2 text-[11px] font-semibold text-gray-500">Loading inventory…</p>}
+                        {!billAddLoading && billAddItems
+                          .filter(it => it.is_active && it.stock > 0 && `${it.name} ${it.variant_name || ''} ${it.barcode || ''}`.toLowerCase().includes(billAddSearch.trim().toLowerCase()))
+                          .slice(0, 40)
+                          .map(it => {
+                            const label = it.variant_name ? `${it.name} (${it.variant_name})` : it.name
+                            return (
+                              <button key={it.id} type="button"
+                                onClick={() => {
+                                  const price = Number(it.price) || 0
+                                  const line: BillLine = {
+                                    product_id: it.product_id, variant_id: it.variant_id || null, name: label,
+                                    category: it.category || '', unit: it.unit || 'piece', unit_type: it.unit_type || 'unit',
+                                    base_quantity: 1, source: 'catalogue',
+                                  }
+                                  const nextIndex = Math.max(be.originalItems.length - 1, ...be.rows.map(r => r.index)) + 1
+                                  setBillEdit({ ...be, error: '', rows: [...be.rows, { index: nextIndex, name: label, qty: '1', price: String(price), stocked: true, added: line }] })
+                                  setBillAddOpen(false)
+                                }}
+                                className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-gray-50">
+                                <span className="min-w-0 truncate text-xs font-bold text-[#111111]">{label}</span>
+                                <span className="shrink-0 text-[10px] font-semibold text-gray-500">{formatCurrency(it.price)} · {it.stock} in stock</span>
+                              </button>
+                            )
+                          })}
+                        {!billAddLoading && billAddItems.length === 0 && <p className="p-2 text-[11px] font-semibold text-gray-500">No inventory items found.</p>}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
