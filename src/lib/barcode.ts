@@ -256,13 +256,15 @@ export function buildPrintBarcode(
 export const formatLabelAmount = (n: number): string => (Number.isInteger(n) ? String(n) : n.toFixed(2))
 
 /**
- * The Christmas POS label's price row: wholesale and retail side by side.
- * Narrow labels use W / R so both prices always fit on one line without clipping.
+ * The Christmas POS label prints Retail and Wholesale price on SEPARATE lines
+ * ("Retail Price: ₹167.20" / "Wholesale Price: ₹120"). A missing wholesale price shows "₹--".
  */
-export function dualPriceText(wholesale: number | null | undefined, retail: number, labelWidthMm: number): string {
+export function priceLines(wholesale: number | null | undefined, retail: number): { retail: string; wholesale: string } {
   const w = wholesale != null && Number(wholesale) > 0 ? `₹${formatLabelAmount(Number(wholesale))}` : '₹--'
-  const r = `₹${formatLabelAmount(Number(retail) || 0)}`
-  return labelWidthMm >= 70 ? `Wholesale ${w} | Retail ${r}` : `W ${w} | R ${r}`
+  return {
+    retail: `Retail Price: ₹${formatLabelAmount(Number(retail) || 0)}`,
+    wholesale: `Wholesale Price: ${w}`,
+  }
 }
 
 /** CSS for `.print-barcode` inside a sticker: exact size, never scaled. */

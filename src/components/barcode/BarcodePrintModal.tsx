@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { X, Printer, Copy, Check, Settings } from 'lucide-react'
 import { BarcodeLabel } from './BarcodeLabel'
 import { BRAND_EN, getBarcodePrefix, getDefaultBarcodeSettings } from '../../lib/brand'
-import { type BarcodeSettings, getAllLabelSizes, buildPrintBarcode, PRINT_BARCODE_CSS, getStoredBarcodeSettings, dualPriceText } from '../../lib/barcode'
+import { type BarcodeSettings, getAllLabelSizes, buildPrintBarcode, PRINT_BARCODE_CSS, getStoredBarcodeSettings, priceLines } from '../../lib/barcode'
 import { BarcodeSettingsDrawer } from './BarcodeSettingsDrawer'
 import { useAdminAuthStore, resolveBranch } from '../../store/store'
 
@@ -161,7 +161,7 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
         <div class="header">
           <div class="brand">${BRAND_EN}</div>
           <div class="prod-title">${fullTitle}</div>
-          ${dualPrice ? `<div class="price-row">${dualPriceText(wholesalePrice, price, selectedPreset.widthMm)}</div>` : ''}
+          ${dualPrice ? `<div class="price-row">${priceLines(wholesalePrice, price).retail}</div><div class="price-row">${priceLines(wholesalePrice, price).wholesale}</div>` : ''}
         </div>
         <div class="barcode-box">
           ${svgMarkup}
@@ -312,7 +312,7 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
               font-weight: 900;
               white-space: nowrap;
               max-width: 98%;
-              margin-top: 0.4mm;
+              margin-top: 0.3mm;
               color: #000;
               line-height: 1.1;
             }

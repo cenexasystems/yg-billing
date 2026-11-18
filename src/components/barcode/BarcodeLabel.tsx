@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react'
-import { renderBarcodeSvg, dualPriceText } from '../../lib/barcode'
+import { renderBarcodeSvg, priceLines } from '../../lib/barcode'
 import { BRAND_EN } from '../../lib/brand'
 import { formatCurrency } from '../../lib/retail'
 
@@ -88,11 +88,16 @@ export const BarcodeLabel: React.FC<BarcodeLabelProps> = ({
           {fullTitle}
         </div>
         {dualPrice && (
-          <div
-            className="font-black text-black whitespace-nowrap max-w-full"
-            style={{ fontSize: isSmall ? '6.5px' : isLarge ? '10px' : '8px', marginTop: '0.4mm' }}
-          >
-            {dualPriceText(wholesalePrice, price, widthMm)}
+          <div className="flex flex-col items-center leading-tight max-w-full" style={{ marginTop: '0.4mm' }}>
+            {([priceLines(wholesalePrice, price).retail, priceLines(wholesalePrice, price).wholesale]).map((line) => (
+              <div
+                key={line}
+                className="font-black text-black whitespace-nowrap max-w-full"
+                style={{ fontSize: isSmall ? '6.5px' : isLarge ? '10px' : '8px' }}
+              >
+                {line}
+              </div>
+            ))}
           </div>
         )}
       </div>

@@ -20,7 +20,7 @@ import {
   getAllLabelSizes,
   renderBarcodeSvg,
   buildPrintBarcode,
-  dualPriceText,
+  priceLines,
   PRINT_BARCODE_CSS,
 } from '../../lib/barcode'
 import { BRAND_EN, BRAND_MONOGRAM, getBarcodePrefix, getDefaultBarcodeSettings } from '../../lib/brand'
@@ -138,8 +138,11 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
   const dualPrice = branch === 'pos3'
   const autoLine3 = (price: number, product?: ProductOption | null) =>
     dualPrice
-      ? dualPriceText(product?.wholesale_price, price, currentSizeConfig.widthMm)
+      ? priceLines(product?.wholesale_price, price).retail
       : (settings.showDiscount ? 'Discount: 0%' : `Price: ₹${price}`)
+  // Christmas POS: Line 4 carries the Wholesale price on its own line. Other counters keep whatever was typed.
+  const autoLine4 = (price: number, product?: ProductOption | null, typed = '') =>
+    dualPrice ? priceLines(product?.wholesale_price, price).wholesale : typed
   const isSmall = currentSizeConfig.heightMm <= 25
   const isLarge = currentSizeConfig.heightMm >= 40
 
@@ -154,6 +157,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
     setLine1(prod.name)
     setLine2(prod.category || '')
     setLine3(autoLine3(prod.price, prod))
+    if (dualPrice) setLine4(autoLine4(prod.price, prod))
 
     // Fetch variants if applicable
     if (prod.has_variants) {
@@ -168,6 +172,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
           setLine2(`Size: ${chosen.variantName}`)
           if (chosen.price) {
             setLine3(autoLine3(chosen.price, prod))
+            if (dualPrice) setLine4(autoLine4(chosen.price, prod))
           }
         }
       } catch (err) {
@@ -251,6 +256,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
     setLine2(`Size: ${v.variantName}`)
     if (v.price) {
       setLine3(autoLine3(v.price, selectedProduct))
+      if (dualPrice) setLine4(autoLine4(v.price, selectedProduct))
     }
   }
 
@@ -905,7 +911,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
                               line1: selectedProduct.name,
                               line2: `Size: ${v.variantName}`,
                               line3: autoLine3(v.price || selectedProduct.price, selectedProduct),
-                              line4: line4.trim(),
+                              line4: autoLine4(v.price || selectedProduct.price, selectedProduct, line4.trim()),
                               selected: true,
                             }))
 
@@ -1112,7 +1118,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
                               className="font-black text-black truncate max-w-full leading-none"
                               style={{ fontSize: `${Math.max(8.5, Math.round(previewHeightPx * 0.095))}px` }}
                             >
-                              {line3 || (dualPrice ? dualPriceText(selectedProduct?.wholesale_price, selectedProduct?.price || 0, currentSizeConfig.widthMm) : settings.showDiscount ? 'Discount: 0%' : 'Price: ₹0')}
+                              {line3 || (dualPrice ? priceLines(selectedProduct?.wholesale_price, selectedProduct?.price || 0).retail : settings.showDiscount ? 'Discount: 0%' : 'Price: ₹0')}
                             </span>
                           )}
 
