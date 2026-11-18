@@ -359,6 +359,16 @@ export default function Pos(props: PosProps = {}) {
   }, [products, search, activeCategory])
 
   const subtotal = items.reduce((s, i) => s + i.lineTotal, 0)
+  // Christmas POS: what the same bill would total at the Retail and at the Wholesale price list
+  const retailListTotal = items.reduce((s, i) => {
+    if (i.source === 'manual' || i.category === 'Unregistered') return s + i.lineTotal
+    return s + calculateLineTotal(i.qty, i.unitType, i.baseQuantity, Number(i.offerPrice || i.price) || 0)
+  }, 0)
+  const wholesaleListTotal = items.reduce((s, i) => {
+    if (i.source === 'manual' || i.category === 'Unregistered') return s + i.lineTotal
+    const w = Number(i.wholesalePrice) || 0
+    return s + calculateLineTotal(i.qty, i.unitType, i.baseQuantity, w > 0 ? w : Number(i.offerPrice || i.price) || 0)
+  }, 0)
   const isValidCoupon = couponsEnabled && !!appliedCoupon && subtotal >= (appliedCoupon.minOrderValue || 0)
   // Coupon code is only recorded on the bill (and counted as a use) while its conditions are met
   const effectiveCouponCode = isValidCoupon ? appliedCoupon?.code : undefined
@@ -1687,15 +1697,15 @@ export default function Pos(props: PosProps = {}) {
                         <div className="mt-1.5 flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => handleOpenPriceEdit(item)}
+                            onClick={() => { if (!(branch === 'pos3' && item.source !== 'manual' && item.category !== 'Unregistered')) handleOpenPriceEdit(item) }}
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#FBF9F4] hover:bg-[#F5EEDB] border border-[#E8D399]/70 hover:border-[#D4AF37] text-[12px] text-[#374151] transition-all cursor-pointer active:scale-95"
-                            title="Tap to change unit price"
+                            title={(branch === 'pos3' && item.source !== 'manual' && item.category !== 'Unregistered') ? undefined : 'Tap to change unit price'}
                           >
                             <span className="text-gray-500 font-medium">Rate:</span>
                             <span className="font-bold text-[#111111]">
                               ₹{Number(item.basePrice || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                             </span>
-                            <Edit2 size={11} className="text-[#B48811]" />
+                            {!(branch === 'pos3' && item.source !== 'manual' && item.category !== 'Unregistered') && <Edit2 size={11} className="text-[#B48811]" />}
                           </button>
                         </div>
                       </div>
@@ -1773,14 +1783,14 @@ export default function Pos(props: PosProps = {}) {
                     <div className="flex items-center justify-end px-2 py-1 text-right">
                       <button
                         type="button"
-                        onClick={() => handleOpenPriceEdit(item)}
+                        onClick={() => { if (!(branch === 'pos3' && item.source !== 'manual' && item.category !== 'Unregistered')) handleOpenPriceEdit(item) }}
                         className="group flex items-center justify-end gap-1.5 px-2.5 py-1.5 rounded-lg border border-transparent hover:border-[#D4AF37]/50 hover:bg-[#D4AF37]/10 transition-all text-right cursor-pointer"
-                        title="Click to edit price"
+                        title={(branch === 'pos3' && item.source !== 'manual' && item.category !== 'Unregistered') ? undefined : 'Click to edit price'}
                       >
                         <span className="text-[13px] font-black text-[#111111] group-hover:text-[#B48811] tracking-tight">
                           ₹{Number(item.basePrice || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                         </span>
-                        <Edit2 size={12} className="text-gray-400 group-hover:text-[#B48811] transition-colors shrink-0" />
+                        {!(branch === 'pos3' && item.source !== 'manual' && item.category !== 'Unregistered') && <Edit2 size={12} className="text-gray-400 group-hover:text-[#B48811] transition-colors shrink-0" />}
                       </button>
                     </div>
 
@@ -1952,6 +1962,13 @@ export default function Pos(props: PosProps = {}) {
                   <span className="text-[11px] font-black text-[#374151]">Subtotal ({items.length} items)</span>
                   <span className="text-[12px] font-black text-[#111111]">{formatCurrency(subtotal)}</span>
                 </div>
+
+                {branch === 'pos3' && items.length > 0 && (
+                  <div className="flex items-center justify-between gap-2 text-[10px] font-bold text-gray-500">
+                    <span>Retail {formatCurrency(retailListTotal)}</span>
+                    <span>Wholesale {formatCurrency(wholesaleListTotal)}</span>
+                  </div>
+                )}
 
                 {billGstEnabled && totalGst > 0 && (
                   <>
