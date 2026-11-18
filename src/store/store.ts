@@ -166,6 +166,9 @@ export interface StoreSettings {
   gstEnabled: boolean
   /** GST % added to every bill when gstEnabled */
   gstRate: number
+  /** Christmas POS only: GST for Wholesale bills (Retail bills use gstEnabled / gstRate) */
+  wholesaleGstEnabled?: boolean
+  wholesaleGstRate?: number
   /** GST registration number printed on invoices and receipts */
   gstin: string
 }
@@ -642,6 +645,8 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
           themeColor: data.theme_color || DEFAULT_THEME_COLOR[queryBranch],
           gstEnabled: Boolean(data.gst_enabled),
           gstRate: Math.max(0, Number(data.gst_rate) || 0),
+          wholesaleGstEnabled: Boolean(data.wholesale_gst_enabled),
+          wholesaleGstRate: Math.max(0, Number(data.wholesale_gst_rate) || 0),
           gstin: String(data.gstin || '').trim(),
         }
         set((state) => ({

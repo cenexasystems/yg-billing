@@ -30,13 +30,15 @@ type FormState = {
   gstin: string
   gstEnabled: boolean
   gstRate: string
+  wholesaleGstEnabled: boolean
+  wholesaleGstRate: string
   themeColor: string
   logoUrl: string
 }
 
 const emptyForm: FormState = {
   name: '', ownerName: '', businessType: '', phoneNumber: '', shopContactNumber: '',
-  email: '', address: '', instagramId: '', googleReviewUrl: '', gstin: '', gstEnabled: false, gstRate: '18', themeColor: '#8B1A1A', logoUrl: '',
+  email: '', address: '', instagramId: '', googleReviewUrl: '', gstin: '', gstEnabled: false, gstRate: '18', wholesaleGstEnabled: false, wholesaleGstRate: '18', themeColor: '#8B1A1A', logoUrl: '',
 }
 
 export default function StoreSettingsView() {
@@ -89,6 +91,8 @@ export default function StoreSettingsView() {
       gstin: currentBranchSettings.gstin || '',
       gstEnabled: currentBranchSettings.gstEnabled,
       gstRate: String(currentBranchSettings.gstRate ?? 18),
+      wholesaleGstEnabled: Boolean(currentBranchSettings.wholesaleGstEnabled),
+      wholesaleGstRate: String(currentBranchSettings.wholesaleGstRate || 18),
       themeColor: currentBranchSettings.themeColor || DEFAULT_BRANCH_COLOR[target],
       logoUrl: currentBranchSettings.logoUrl || '',
     })
@@ -106,7 +110,7 @@ export default function StoreSettingsView() {
     setForm({
       name: currentBranchSettings.name, ownerName: currentBranchSettings.ownerName, businessType: currentBranchSettings.businessType,
       phoneNumber, shopContactNumber: shopContactNumber || phoneNumber, email: currentBranchSettings.email,
-      address: currentBranchSettings.address, instagramId: currentBranchSettings.instagramId, googleReviewUrl: currentBranchSettings.googleReviewUrl || '', gstin: currentBranchSettings.gstin || '', gstEnabled: currentBranchSettings.gstEnabled, gstRate: String(currentBranchSettings.gstRate ?? 18), themeColor: currentBranchSettings.themeColor,
+      address: currentBranchSettings.address, instagramId: currentBranchSettings.instagramId, googleReviewUrl: currentBranchSettings.googleReviewUrl || '', gstin: currentBranchSettings.gstin || '', gstEnabled: currentBranchSettings.gstEnabled, gstRate: String(currentBranchSettings.gstRate ?? 18), wholesaleGstEnabled: Boolean(currentBranchSettings.wholesaleGstEnabled), wholesaleGstRate: String(currentBranchSettings.wholesaleGstRate || 18), themeColor: currentBranchSettings.themeColor,
       logoUrl: currentBranchSettings.logoUrl || '',
     })
     setMessage(null)
@@ -140,6 +144,10 @@ export default function StoreSettingsView() {
         gstin: form.gstin.trim().toUpperCase(),
         gst_enabled: form.gstEnabled,
         gst_rate: Math.min(100, Math.max(0, Number(form.gstRate) || 0)),
+        ...(target === 'pos3' ? {
+          wholesale_gst_enabled: form.wholesaleGstEnabled,
+          wholesale_gst_rate: Math.min(100, Math.max(0, Number(form.wholesaleGstRate) || 0)),
+        } : {}),
         theme_color: normalizeHex(form.themeColor),
         logo_url: form.logoUrl || null,
         updated_at: new Date().toISOString(),
@@ -442,7 +450,7 @@ export default function StoreSettingsView() {
               <div className="rounded-xl border border-gray-200 bg-[#FBFAF6] p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">Apply GST to every bill</p>
+                    <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">{target === 'pos3' ? 'Retail bills: apply GST' : 'Apply GST to every bill'}</p>
                     <p className="mt-0.5 text-[10px] font-semibold text-gray-500">Added automatically to all bills on this POS, shown as CGST + SGST.</p>
                   </div>
                   <button
@@ -475,6 +483,38 @@ export default function StoreSettingsView() {
                   </div>
                 )}
               </div>
+              {target === 'pos3' && (
+                <div className="rounded-xl border border-gray-200 bg-[#FBFAF6] p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">Wholesale bills: apply GST</p>
+                      <p className="mt-0.5 text-[10px] font-semibold text-gray-500">Used when a bill is billed at the Wholesale price list.</p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={form.wholesaleGstEnabled}
+                      aria-label="Apply GST to wholesale bills"
+                      onClick={() => setForm((f) => ({ ...f, wholesaleGstEnabled: !f.wholesaleGstEnabled }))}
+                      className={`shrink-0 w-10 h-6 rounded-full p-0.5 transition-colors ${form.wholesaleGstEnabled ? 'bg-[#7A1220]' : 'bg-gray-300'}`}
+                    >
+                      <span className={`block w-5 h-5 rounded-full bg-white transition-transform ${form.wholesaleGstEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+                  {form.wholesaleGstEnabled && (
+                    <div className="mt-3">
+                      <label className="block text-[10px] font-black uppercase tracking-wide text-gray-500 mb-1">Wholesale GST rate (%)</label>
+                      <input
+                        type="number" min={0} max={100} step="0.01"
+                        value={form.wholesaleGstRate}
+                        onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                        onChange={(e) => setForm((f) => ({ ...f, wholesaleGstRate: e.target.value }))}
+                        className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-white text-sm font-bold outline-none focus:border-gray-400"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-wide text-gray-500 mb-1">Shop Address</label>
                 <textarea value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} rows={2} className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-[#FBFAF6] text-sm font-bold outline-none focus:border-gray-400 resize-none" />

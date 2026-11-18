@@ -583,6 +583,26 @@ export default function Dashboard() {
     const retailBills = branch === 'pos3' ? billableCompleted.filter(o => !isWholesaleBill(o)) : []
     const wholesaleRevenue = wholesaleBills.reduce((s, o) => s + getOrderTotal(o), 0)
     const retailRevenue = retailBills.reduce((s, o) => s + getOrderTotal(o), 0)
+    // Money received per payment mode. A split bill (e.g. Cash + Card) is counted in each mode's own box.
+    const payKind = (label: string): 'cash' | 'card' | 'qr' | 'other' => /qr|upi/i.test(label) ? 'qr' : /card/i.test(label) ? 'card' : /cash/i.test(label) ? 'cash' : 'other'
+    const paymentTotals = { cash: 0, card: 0, qr: 0, other: 0 }
+    const paymentBills = { cash: 0, card: 0, qr: 0, other: 0 }
+    billableCompleted.forEach(o => {
+      const mode = String(o.payment_mode || o.payment_method || 'cash')
+      const splits = parseSplitPayment(mode)
+      if (splits.length >= 2) {
+        const seen = new Set<string>()
+        splits.forEach(sp => {
+          const k = payKind(sp.label)
+          paymentTotals[k] += sp.amount
+          if (!seen.has(k)) { paymentBills[k] += 1; seen.add(k) }
+        })
+      } else {
+        const k = payKind(mode)
+        paymentTotals[k] += getOrderTotal(o)
+        paymentBills[k] += 1
+      }
+    })
     const posRevenue         = offlinePOS.reduce((s, o) => s + getOrderTotal(o), 0)
     const advanceRevenue     = advanceOrders.reduce((s, o) => s + getOrderTotal(o), 0)
     const onlinePosRevenue   = onlinePOS.reduce((s, o) => s + getOrderTotal(o), 0)
@@ -860,6 +880,7 @@ export default function Dashboard() {
 
     return {
       totalCompletedRevenue: completedRevenue,
+      paymentTotals, paymentBills,
       retailRevenue, wholesaleRevenue, retailBillCount: retailBills.length, wholesaleBillCount: wholesaleBills.length,
       averageRevenuePerBill,
       todaySales,
@@ -2880,6 +2901,24 @@ export default function Dashboard() {
                         </div>
                       </div>
                       <p className="text-[12px] text-[#6B7280] leading-snug" title={card.helper}>{card.helper}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Payment mode boxes: a split bill is counted in each mode it used */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {([
+                    { key: 'cash', label: 'Cash Payments', bg: 'bg-emerald-50', color: 'text-emerald-600' },
+                    { key: 'card', label: 'Card Payments', bg: 'bg-blue-50', color: 'text-blue-600' },
+                    { key: 'qr', label: 'QR / UPI Payments', bg: 'bg-violet-50', color: 'text-violet-600' },
+                  ] as const).map(pm => (
+                    <div key={pm.key} className="bg-white rounded-card border border-borderLight p-5 shadow-soft">
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <p className="text-[11px] font-bold text-[#111111]">{pm.label}</p>
+                        <div className={`w-8 h-8 rounded-full ${pm.bg} flex items-center justify-center ${pm.color} shrink-0`}><RMIcon size={16} /></div>
+                      </div>
+                      <p className="text-[22px] sm:text-[24px] font-bold leading-tight text-[#111111]">{formatCurrency(analytics.paymentTotals[pm.key])}</p>
+                      <p className="mt-2 text-[12px] text-[#6B7280]">{analytics.paymentBills[pm.key]} bill{analytics.paymentBills[pm.key] === 1 ? '' : 's'} (split bills included)</p>
                     </div>
                   ))}
                 </div>

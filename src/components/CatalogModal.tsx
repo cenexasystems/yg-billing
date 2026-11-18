@@ -238,6 +238,16 @@ export default function CatalogModal({ isOpen, branch, onClose, onAdd }: Catalog
                       <div className="pt-2 border-t border-[#E5E7EB]/40 flex items-center justify-between gap-1.5">
                         <div onClick={() => onAdd(product)} className="cursor-pointer flex flex-col min-w-0">
                           <span className="text-[14px] font-black text-[#111111] tabular-nums">₹{product.price}</span>
+                          {branch === 'pos3' && String(product.category || '').toLowerCase() !== 'unregistered' && (() => {
+                            const left = Number(product.stock) || 0
+                            const out = left <= 0
+                            const low = !out && left <= (product.lowStockAlert || 5)
+                            return (out || low) ? (
+                              <span className={`mt-1 inline-block w-fit rounded px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide ${out ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'}`}>
+                                {out ? 'Out of stock' : `Low stock: ${left} left`}
+                              </span>
+                            ) : null
+                          })()}
                           <span className="text-[9px] font-bold text-[#374151] uppercase tracking-wider bg-[#F9FAFB] px-1.5 py-0.5 rounded border border-[#E5E7EB]/40 break-words">
                             {product.category}
                           </span>

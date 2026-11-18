@@ -205,7 +205,11 @@ export default function Pos(props: PosProps = {}) {
   const [variantPickerQty, setVariantPickerQty] = useState(1)
   // GST is set per POS in Store Settings and applied to every bill.
   const posSettings = useSettingsStore((s) => s.settingsByBranch[branch])
-  const settingsGstRate = posSettings?.gstEnabled ? Math.max(0, posSettings.gstRate || 0) : 0
+  // Christmas POS: the bill is either Retail or Wholesale, and each has its own GST setting.
+  const [priceMode, setPriceMode] = useState<'retail' | 'wholesale'>('retail')
+  const settingsGstRate = branch === 'pos3' && priceMode === 'wholesale'
+    ? (posSettings?.wholesaleGstEnabled ? Math.max(0, posSettings.wholesaleGstRate || 0) : 0)
+    : (posSettings?.gstEnabled ? Math.max(0, posSettings.gstRate || 0) : 0)
   const billGstEnabled = settingsGstRate > 0
   const [catalogOpen, setCatalogOpen] = useState(false)
   const [addUnregisteredOpen, setAddUnregisteredOpen] = useState(false)
@@ -259,7 +263,6 @@ export default function Pos(props: PosProps = {}) {
 
   // Christmas POS (POS 3): a bill is priced from the Retail or the Wholesale price list.
   // Switching re-prices every catalogue line; lines whose product has no wholesale price keep the retail price.
-  const [priceMode, setPriceMode] = useState<'retail' | 'wholesale'>('retail')
   useEffect(() => {
     if (branch !== 'pos3') return
     setItems((cur) => {
