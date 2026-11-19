@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { pruneInvoicePdfs } from './invoiceRetention'
 
 const PRODUCT_IMAGE_BUCKET = 'product-images'
 const INVOICE_BUCKET = 'invoices'
@@ -47,6 +48,9 @@ export const uploadInvoicePdf = async (file: File, invoiceNo: string): Promise<s
   const { data } = supabase.storage
     .from(INVOICE_BUCKET)
     .getPublicUrl(filePath)
+
+  // Keep storage small: drop surplus old PDFs in the background
+  void pruneInvoicePdfs()
 
   return data.publicUrl
 }

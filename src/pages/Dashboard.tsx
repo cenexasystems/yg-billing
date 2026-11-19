@@ -53,6 +53,7 @@ import { invoicePdfFile } from '../lib/invoicePdf'
 import { formatPhoneForCSV, formatPhoneForDisplay, toWhatsAppUrl } from '../lib/phone'
 import { buildFireworksAdvanceMessage } from '../lib/advanceWhatsApp'
 import { findAdvanceOrderByCompletedOrderId } from '../services/advanceOrderService'
+import { pruneInvoicePdfs } from '../lib/invoiceRetention'
 import { inventoryService, type InventoryStockItem } from '../services/inventoryService'
 import { billGstRate, calcBillTotals, saveEditedBill, toEditLines, type BillLine } from '../services/billEditService'
 // toWhatsAppUrl removed - using direct link building in handlers
@@ -1005,6 +1006,11 @@ export default function Dashboard() {
     }
     setRoleUpdating(null)
   }
+
+  // Admin opening the dashboard trims stored invoice PDFs (Storage quota): Fireworks PDFs beyond the newest 200
+  useEffect(() => {
+    if (role === 'admin') void pruneInvoicePdfs()
+  }, [role])
 
   const openBillEdit = (order: DashboardOrder) => {
     const mode = String(order.payment_mode || order.payment_method || 'cash')
