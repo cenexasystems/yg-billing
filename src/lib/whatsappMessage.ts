@@ -30,6 +30,8 @@ export type BuildWhatsAppMessageInput = {
   /** GST rate in percent, when known (otherwise worked out from the amounts) */
   gstRate?: number | null
   total?: number
+  /** Public link to the bill's PDF; included on Christmas (POS 3) bill messages only */
+  invoicePdfUrl?: string | null
   branch?: string // POS1 or POS2
 }
 
@@ -284,7 +286,8 @@ const billSummaryLines = (input: BuildWhatsAppMessageInput): string[] => {
 /** Fireworks (POS 2): greeting and links only. Christmas (POS 3): the bill summary as well. */
 export const buildFireworksBillWhatsAppMessage = (input: BuildWhatsAppMessageInput) => {
   const isChristmas = String(input.branch || '').toLowerCase() === 'pos3'
-  return buildFireworksWhatsAppMessage(input.branch, isChristmas ? billSummaryLines(input) : [])
+  const pdf = isChristmas && input.invoicePdfUrl ? ['📄 *Invoice PDF:*', input.invoicePdfUrl, ''] : []
+  return buildFireworksWhatsAppMessage(input.branch, [...(isChristmas ? billSummaryLines(input) : []), ...pdf])
 }
 
 /** Previous Fireworks bill message with the full calculation (no longer sent). */

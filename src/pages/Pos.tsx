@@ -1148,7 +1148,13 @@ export default function Pos(props: PosProps = {}) {
   const change = cashReceived && Number(cashReceived) >= total
     ? Number(cashReceived) - total : null
 
-  const sendPosWhatsApp = (inv: InvoiceSnap) => {
+  const sendPosWhatsApp = async (inv: InvoiceSnap) => {
+    // Christmas bills carry the PDF link. It uploads right after the sale; if it isn't
+    // done yet, open the tab inside the click (so it isn't blocked) and fill it later.
+    const wantsPdf = branch === 'pos3'
+    const pdfReady = inv.invoicePdfUrl || null
+    const tab = wantsPdf && !pdfReady ? window.open('', '_blank') : null
+    const invoicePdfUrl = wantsPdf ? (pdfReady || await persistInvoicePdf(inv)) : null
     const invoiceUrl = publicInvoiceUrl(inv.invoiceNo)
     const message = buildProfessionalWhatsAppMessage({
       customerName: inv.customerName,
@@ -1174,12 +1180,25 @@ export default function Pos(props: PosProps = {}) {
       gstRate: inv.gstRate,
       invoiceDate: inv.date,
       total: inv.total,
+      invoicePdfUrl,
       branch: branch, // Branch passed through for branch-specific receipt details
     })
-    window.open(toWhatsAppUrl(inv.phone || customer.phone || '', message), '_blank', 'noopener,noreferrer')
+    const waUrl = toWhatsAppUrl(inv.phone || customer.phone || '', message)
+    if (tab) tab.location.href = waUrl
+    else window.open(waUrl, '_blank', 'noopener,noreferrer')
   }
 
-  const persistInvoicePdf = async (inv: InvoiceSnap) => {
+  // One upload per bill, shared by the post-sale save and the WhatsApp button.
+  const pdfUploadsRef = useRef(new Map<string, Promise<string | null>>())
+  const persistInvoicePdf = (inv: InvoiceSnap): Promise<string | null> => {
+    const pending = pdfUploadsRef.current.get(inv.id)
+    if (pending) return pending
+    const upload = uploadBillPdf(inv)
+    pdfUploadsRef.current.set(inv.id, upload)
+    return upload
+  }
+
+  const uploadBillPdf = async (inv: InvoiceSnap): Promise<string | null> => {
     try {
       const file = invoicePdfFile({
         invoiceNo: inv.invoiceNo,
@@ -1204,8 +1223,10 @@ export default function Pos(props: PosProps = {}) {
       const url = await uploadInvoicePdf(file, inv.invoiceNo)
       await supabase.from('orders').update({ invoice_pdf_url: url }).eq('id', inv.id).eq('branch', branch)
       setInvoice(current => current?.id === inv.id ? { ...current, invoicePdfUrl: url } : current)
+      return url
     } catch (err) {
       console.warn('Invoice PDF could not be stored:', err)
+      return null
     }
   }
 

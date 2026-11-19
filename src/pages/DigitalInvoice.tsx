@@ -335,6 +335,7 @@ export default function DigitalInvoice() {
       rate: item.base_price,
       lineTotal: item.line_total,
     }))
+    const pdfUrl = invoice.pdf_url || invoice.invoice_pdf_url
     const message = buildProfessionalWhatsAppMessage({
       customerName: invoice.customer_name,
       phone: invoice.phone,
@@ -350,16 +351,16 @@ export default function DigitalInvoice() {
       gstAmount: invoice.total_gst || invoice.gst_amount || 0,
       total: invoice.total,
       paymentMode: invoice.payment_mode || invoice.payment_method,
+      invoicePdfUrl: pdfUrl || null,
       branch: invoice.branch,
     })
 
     const invoiceUrl = window.location.href
-    const pdfUrl = invoice.pdf_url || invoice.invoice_pdf_url
     const linkSection = pdfUrl
       ? `\n\n📄 View Invoice: ${invoiceUrl}\n📥 Download PDF: ${pdfUrl}`
       : `\n\n📄 View Invoice: ${invoiceUrl}`
 
-    // Fireworks: never send the invoice link, only the calculation
+    // Fireworks / Christmas layouts send no extra links (Christmas has its PDF link in the message)
     const whatsappMessage = usesFireworksLayout(invoice.branch) ? message : `${message}${linkSection}`
     const waUrl = toWhatsAppUrl(invoice.phone, whatsappMessage)
 

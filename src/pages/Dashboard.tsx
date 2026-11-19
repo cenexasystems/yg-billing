@@ -43,7 +43,7 @@ import { debounce } from '../lib/debounce'
 import { useAuthStore, useProductStore, useAdminAuthStore, resolveBranch, POS_BRANCHES, usesFireworksLayout, branchHasAdvanceOrders, branchHasCoupons, type Product, type PosBranch } from '../store/store'
 import { useAlarmStore } from '../store/alarmStore'
 import { alarmSound } from '../lib/alarmAudio'
-import { uploadProductImage } from '../lib/storage'
+import { uploadInvoicePdf, uploadProductImage } from '../lib/storage'
 import { formatCurrency, normalizeOrderMode, normalizeUnitType, toNumber, type UnitType } from '../lib/retail'
 import { normalizeStructuredOrderItem, formatInvoiceNo, couponLabel } from '../lib/retail'
 import { Invoice } from '../components/Invoice'
@@ -1177,6 +1177,7 @@ export default function Dashboard() {
       shipping: order.delivery_charge,
       total: order.total,
       paymentMode: order.payment_mode || order.payment_method,
+      invoicePdfUrl: order.invoice_pdf_url || null,
       branch: branch, // Branch passed through for branch-specific receipt details
     })
     return { items, subtotal, message, fileName: `Invoice-${order.invoice_no || order.id}.pdf` }
@@ -1188,20 +1189,59 @@ export default function Dashboard() {
     if (!usesFireworksLayout(branch)) { window.open(`/invoice/${order.id}`, '_blank'); return }
     // Open the tab inside the click so the browser doesn't block it, then point it at WhatsApp
     const tab = window.open('', '_blank')
+    const pdfUrl = branch === 'pos3' ? await ensureBillPdf(order) : null
+    const withPdf: DashboardOrder = { ...order, invoice_pdf_url: pdfUrl || '' }
     let message = ''
     try {
       if (normalizeOrderType(order.order_type) === 'advance_order') {
         const adv = await findAdvanceOrderByCompletedOrderId(order.id, branch)
         if (adv) message = await buildFireworksAdvanceMessage(adv)
+        if (message && pdfUrl) message += `
+
+📄 *Invoice PDF:*
+${pdfUrl}`
       }
     } catch { /* fall back to the plain bill message */ }
-    if (!message) message = getOrderWhatsAppPreview(order)?.message || ''
+    if (!message) message = getOrderWhatsAppPreview(withPdf)?.message || ''
     if (!message) { tab?.close(); alert('This bill has no items to send.'); return }
     const url = toWhatsAppUrl(order.phone, message)
     if (tab) tab.location.href = url
     else window.open(url, '_blank', 'noopener,noreferrer')
   }
 
+
+  // The bill's PDF link; builds and uploads the PDF when it has none (e.g. cleaned up).
+  const ensureBillPdf = async (order: DashboardOrder): Promise<string | null> => {
+    if (order.invoice_pdf_url) return order.invoice_pdf_url
+    const preview = getOrderWhatsAppPreview(order)
+    if (!preview) return null
+    try {
+      const file = invoicePdfFile({
+        invoiceNo: order.invoice_no || order.id,
+        date: order.created_at,
+        customerName: order.customer_name,
+        phone: order.phone,
+        address: order.address,
+        branch: order.branch,
+        items: preview.items as unknown as Array<Record<string, unknown>>,
+        subtotal: preview.subtotal,
+        shipping: order.delivery_charge,
+        discountAmount: order.discount_amount,
+        couponCode: order.coupon_code, couponPercentage: order.coupon_percentage,
+        manualDiscountAmount: order.manual_discount_amount,
+        gstAmount: order.total_gst,
+        paymentMode: order.payment_mode,
+        total: order.total,
+      })
+      const url = await uploadInvoicePdf(file, order.invoice_no || order.id)
+      await supabase.from('orders').update({ invoice_pdf_url: url }).eq('id', order.id).eq('branch', branch)
+      setOrders(prev => prev.map(o => o.id === order.id ? { ...o, invoice_pdf_url: url } : o))
+      return url
+    } catch (err) {
+      console.warn('Invoice PDF could not be stored:', err)
+      return null
+    }
+  }
 
   const handlePrintReceipt = (order: DashboardOrder) => {
     const preview = getOrderWhatsAppPreview(order)
