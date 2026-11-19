@@ -1009,7 +1009,7 @@ export default function Dashboard() {
 
   // Admin opening the dashboard trims stored invoice PDFs (Storage quota): Fireworks PDFs beyond the newest 200
   useEffect(() => {
-    if (role === 'admin') void pruneInvoicePdfs()
+    if (role === 'admin') void pruneInvoicePdfs({ force: true })
   }, [role])
 
   const openBillEdit = (order: DashboardOrder) => {
