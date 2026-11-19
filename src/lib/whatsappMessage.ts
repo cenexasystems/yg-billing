@@ -1,6 +1,7 @@
 import { couponLabel, formatInvoiceNo } from './retail'
 import { BRAND_EN, BRAND_PRODUCTION_DOMAIN, BRAND_WEBSITE } from './brand'
 import { getBranchProfile } from './branchProfile'
+import { splitGst } from './gst'
 
 export type WhatsAppLineItem = {
   name: string
@@ -26,6 +27,8 @@ export type BuildWhatsAppMessageInput = {
   manualDiscountAmount?: number
   shipping?: number
   gstAmount?: number
+  /** GST rate in percent, when known (otherwise worked out from the amounts) */
+  gstRate?: number | null
   total?: number
   branch?: string // POS1 or POS2
 }
@@ -187,7 +190,7 @@ const paymentLines = (title: string, amount: number, method?: string | null) => 
  * Fireworks (POS 2) and Christmas (POS 3) WhatsApp message: shop name, Instagram, website, a thank-you
  * line and the shop's WhatsApp number only. No bill or payment details, no invoice link.
  */
-export const buildFireworksWhatsAppMessage = (branch?: string) => {
+export const buildFireworksWhatsAppMessage = (branch?: string, billSummary: string[] = []) => {
   const profile = getBranchProfile(branch || 'pos2')
   const lines = [
     `✨ *${profile.name || BRAND_EN}* ✨`,
@@ -196,6 +199,7 @@ export const buildFireworksWhatsAppMessage = (branch?: string) => {
       ? `Thank you for shopping with us! 🎄 Wishing you a merry and joyful Christmas. Visit us again!`
       : `Thank you for shopping with us! 🎆 We hope you have a safe and happy celebration. Visit us again!`,
     '',
+    ...billSummary,
   ]
   if (profile.instagramUrls) lines.push('📷 *Instagram:*', profile.instagramUrls, '')
   if (profile.googleReviewUrl) lines.push('⭐ *Rate us on Google:*', profile.googleReviewUrl, '')
@@ -246,9 +250,41 @@ export const buildAdvanceCalculationWhatsAppMessage = (input: AdvanceCalculation
   return lines.join('\n')
 }
 
-/** Fireworks (POS 2) bill: items, every charge/discount and the payment (with splits). No links. */
+/**
+ * The bill as it appears on the invoice: items, subtotal, each discount, CGST/SGST, delivery,
+ * total and the payment (each part of a split payment on its own line).
+ */
+const billSummaryLines = (input: BuildWhatsAppMessageInput): string[] => {
+  const line = '━━━━━━━━━━━━━━'
+  const items = input.items || []
+  const subtotal = input.subtotal ?? items.reduce((sum, i) => sum + (Number(i.lineTotal) || 0), 0)
+  const coupon = Number(input.couponDiscount) || 0
+  const manual = Number(input.manualDiscountAmount) || 0
+  const shipping = Number(input.shipping) || 0
+  const total = Number(input.total ?? subtotal - coupon - manual + shipping + (Number(input.gstAmount) || 0)) || 0
+
+  const lines = ['🧾 *Bill Summary*', `Invoice No: #${formatInvoiceNo(input.invoiceNumber)}`]
+  if (input.invoiceDate) lines.push(`Date: ${new Date(input.invoiceDate).toLocaleDateString('en-IN')}`)
+  if (items.length) lines.push('', '*Items:*', ...items.map((i) => `• ${i.name} (x${i.qty}) - ${rupees(Number(i.lineTotal) || 0)}`))
+  lines.push(line, `Subtotal: ${rupees(subtotal)}`)
+  if (coupon > 0) lines.push(`${couponLabel(input.couponCode, input.couponPercentage)}: -${rupees(coupon)}`)
+  if (manual > 0) lines.push(`Discount: -${rupees(manual)}`)
+  if ((Number(input.gstAmount) || 0) > 0) {
+    const gst = splitGst(Number(input.gstAmount) || 0, subtotal - coupon - manual, input.gstRate)
+    const at = gst.halfRateLabel ? ` @ ${gst.halfRateLabel}` : ''
+    lines.push(`CGST${at}: ${rupees(gst.cgst)}`, `SGST${at}: ${rupees(gst.sgst)}`)
+  }
+  if (shipping > 0) lines.push(`Delivery: ${rupees(shipping)}`)
+  lines.push(`*Total: ${rupees(total)}*`)
+  if (input.paymentMode) lines.push(line, ...paymentLines('Paid', total, input.paymentMode))
+  lines.push('')
+  return lines
+}
+
+/** Fireworks (POS 2): greeting and links only. Christmas (POS 3): the bill summary as well. */
 export const buildFireworksBillWhatsAppMessage = (input: BuildWhatsAppMessageInput) => {
-  return buildFireworksWhatsAppMessage(input.branch)
+  const isChristmas = String(input.branch || '').toLowerCase() === 'pos3'
+  return buildFireworksWhatsAppMessage(input.branch, isChristmas ? billSummaryLines(input) : [])
 }
 
 /** Previous Fireworks bill message with the full calculation (no longer sent). */

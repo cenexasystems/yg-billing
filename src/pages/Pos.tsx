@@ -1171,6 +1171,8 @@ export default function Pos(props: PosProps = {}) {
       manualDiscountAmount: inv.manualDiscountAmount,
       shipping: inv.shipping,
       gstAmount: inv.gstAmount,
+      gstRate: inv.gstRate,
+      invoiceDate: inv.date,
       total: inv.total,
       branch: branch, // Branch passed through for branch-specific receipt details
     })

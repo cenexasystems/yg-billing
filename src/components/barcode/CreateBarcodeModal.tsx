@@ -21,6 +21,7 @@ import {
   renderBarcodeSvg,
   buildPrintBarcode,
   priceLines,
+  christmasLabelTitle,
   PRINT_BARCODE_CSS,
 } from '../../lib/barcode'
 import { BRAND_EN, BRAND_MONOGRAM, getBarcodePrefix, getDefaultBarcodeSettings } from '../../lib/brand'
@@ -447,22 +448,21 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
         labelWidthMm: currentSizeConfig.widthMm,
         labelHeightMm: currentSizeConfig.heightMm,
         thermal: isThermal,
-        compact: dualPrice,
       })?.svg || ''
       for (let i = 0; i < count; i++) {
         allStickers.push(`
           <div class="label-sticker">
-            ${settings.showCompanyName ? `<div class="header">${item.header || BRAND_EN}</div>` : ''}
-            ${settings.showItemName ? `<div class="prod-title">${fullTitle}</div>` : ''}
+            ${dualPrice ? `<div class="header">${christmasLabelTitle(currentSizeConfig.widthMm)}</div>` : settings.showCompanyName ? `<div class="header">${item.header || BRAND_EN}</div>` : ''}
+            ${settings.showItemName && !dualPrice ? `<div class="prod-title">${fullTitle}</div>` : ''}
             <div class="barcode-box">
               ${svgMarkup}
             </div>
             ${line3 ? `<div class="extra-line${dualPrice ? ' price-line' : ''}">${line3}</div>` : ''}
             ${line4 ? `<div class="extra-line${dualPrice ? ' price-line' : ''}">${line4}</div>` : ''}
-            <div class="footer">
+            ${dualPrice ? '' : `<div class="footer">
               <span>${item.line2 ? `<span class="tag">${esc(item.line2)}</span>` : `<span class="tag">${BRAND_EN}</span>`}</span>
-              ${settings.showSalePrice && !dualPrice ? `<span class="price">₹${item.price}</span>` : ''}
-            </div>
+              ${settings.showSalePrice ? `<span class="price">₹${item.price}</span>` : ''}
+            </div>`}
           </div>
         `)
       }
@@ -1076,12 +1076,12 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
                           }}
                         >
                           {/* Company / Brand */}
-                          {settings.showCompanyName && (
+                          {(settings.showCompanyName || dualPrice) && (
                             <span
                               className="font-black uppercase tracking-wider text-gray-900 leading-none truncate max-w-[78%]"
                               style={{ fontSize: `${Math.max(8, Math.round(previewHeightPx * 0.085))}px` }}
                             >
-                              {header || BRAND_EN}
+                              {dualPrice ? christmasLabelTitle(currentSizeConfig.widthMm) : header || BRAND_EN}
                             </span>
                           )}
 
@@ -1102,7 +1102,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
                           </span>
 
                           {/* Product Title */}
-                          {settings.showItemName && (
+                          {settings.showItemName && !dualPrice && (
                             <span
                               className="font-bold text-gray-800 truncate max-w-full leading-tight"
                               style={{ fontSize: `${Math.max(7.5, Math.round(previewHeightPx * 0.075))}px` }}
@@ -1112,7 +1112,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
                           )}
 
                           {/* Variant / Category */}
-                          {line2 && (
+                          {line2 && !dualPrice && (
                             <span
                               className="font-semibold text-gray-600 truncate max-w-full leading-tight"
                               style={{ fontSize: `${Math.max(7, Math.round(previewHeightPx * 0.07))}px` }}
@@ -1122,7 +1122,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
                           )}
 
                           {/* Price */}
-                          {settings.showSalePrice && (
+                          {(settings.showSalePrice || dualPrice) && (
                             <span
                               className="font-black text-black truncate max-w-full leading-none"
                               style={{ fontSize: `${Math.max(8.5, Math.round(previewHeightPx * 0.095))}px` }}

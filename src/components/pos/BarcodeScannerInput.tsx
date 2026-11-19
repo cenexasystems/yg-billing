@@ -192,9 +192,10 @@ export const BarcodeScannerInput: React.FC<BarcodeScannerInputProps> = ({
       const target = e.target as HTMLElement
       const isInputField = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
 
-      if (e.key === 'Enter') {
+      // Scanners end a code with Enter, or with Tab when configured that way.
+      if (e.key === 'Enter' || e.key === 'Tab') {
         const buffered = bufferRef.current.code
-        // If rapid keystrokes (< 45ms average) accumulated >= 4 characters
+        // If rapid keystrokes accumulated >= 4 characters
         if (buffered.length >= 4 && diff < 150) {
           e.preventDefault()
           e.stopPropagation()
@@ -220,7 +221,8 @@ export const BarcodeScannerInput: React.FC<BarcodeScannerInputProps> = ({
 
       // Printable single character
       if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
-        if (diff > 45) {
+        // Wireless / Bluetooth scanners send keys up to ~80 ms apart; people type slower.
+        if (diff > 80) {
           // Slow typing cadence (human typing): start fresh buffer
           bufferRef.current = {
             code: e.key,
@@ -228,7 +230,7 @@ export const BarcodeScannerInput: React.FC<BarcodeScannerInputProps> = ({
             targetInput: isInputField ? (target as HTMLInputElement | HTMLTextAreaElement) : null,
           }
         } else {
-          // Rapid typing cadence (< 45ms): hardware barcode scanner burst
+          // Rapid typing cadence: hardware barcode scanner burst
           bufferRef.current.code += e.key
           bufferRef.current.lastTime = now
           if (isInputField) {

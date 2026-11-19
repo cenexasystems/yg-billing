@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { X, Printer, Copy, Check, Settings } from 'lucide-react'
 import { BarcodeLabel } from './BarcodeLabel'
 import { BRAND_EN, getBarcodePrefix, getDefaultBarcodeSettings } from '../../lib/brand'
-import { type BarcodeSettings, getAllLabelSizes, buildPrintBarcode, PRINT_BARCODE_CSS, getStoredBarcodeSettings, priceLines } from '../../lib/barcode'
+import { type BarcodeSettings, getAllLabelSizes, buildPrintBarcode, PRINT_BARCODE_CSS, getStoredBarcodeSettings, priceLines, christmasLabelTitle } from '../../lib/barcode'
 import { BarcodeSettingsDrawer } from './BarcodeSettingsDrawer'
 import { useAdminAuthStore, resolveBranch } from '../../store/store'
 
@@ -144,7 +144,6 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
         labelWidthMm: selectedPreset.widthMm,
         labelHeightMm: selectedPreset.heightMm,
         thermal: isThermal,
-        compact: dualPrice,
       })?.svg || ''
 
       const headerFontSize = isSmall ? '7pt' : isLarge ? '10.5pt' : '8.5pt'
@@ -156,7 +155,18 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
     // Build standalone HTML for the printed stickers with strict thermal proportions
     const parsedQty = parseInt(quantity.trim(), 10)
     const validQuantity = !isNaN(parsedQty) && parsedQty > 0 ? parsedQty : 1
-    const singleStickerHtml = `
+    const singleStickerHtml = dualPrice ? `
+      <div class="sticker">
+        <div class="header">
+          <div class="brand">${christmasLabelTitle(selectedPreset.widthMm)}</div>
+          <div class="price-row">${priceLines(wholesalePrice, price).retail}</div>
+          <div class="price-row">${priceLines(wholesalePrice, price).wholesale}</div>
+        </div>
+        <div class="barcode-box">
+          ${svgMarkup}
+        </div>
+      </div>
+    ` : `
       <div class="sticker">
         <div class="header">
           <div class="brand">${BRAND_EN}</div>
@@ -579,7 +589,7 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
                 mrp={mrp}
                 dualPrice={dualPrice}
                 wholesalePrice={wholesalePrice}
-                storeName={footerText}
+                storeName={dualPrice ? christmasLabelTitle(selectedPreset.widthMm) : footerText}
                 widthMm={selectedPreset.widthMm}
                 heightMm={selectedPreset.heightMm}
               />

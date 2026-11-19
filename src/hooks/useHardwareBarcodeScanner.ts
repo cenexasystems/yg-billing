@@ -33,11 +33,11 @@ export function useHardwareBarcodeScanner({
         target &&
         (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
 
-      // Hardware scanners end with 'Enter'
-      if (e.key === 'Enter') {
+      // Scanners end a code with Enter, or with Tab when configured that way.
+      if (e.key === 'Enter' || e.key === 'Tab') {
         const buffered = bufferRef.current.code.trim()
 
-        // Verify if rapid keystrokes (< 50ms average) accumulated >= 4 characters
+        // Verify that rapid keystrokes accumulated >= 4 characters
         if (buffered.length >= 4 && diff < 150) {
           e.preventDefault()
           e.stopPropagation()
@@ -80,7 +80,8 @@ export function useHardwareBarcodeScanner({
 
       // Printable single character
       if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
-        if (diff > 45) {
+        // Wireless / Bluetooth scanners send keys up to ~80 ms apart; people type slower.
+        if (diff > 80) {
           // Slow typing cadence (human typing): reset buffer
           bufferRef.current = {
             code: e.key,
@@ -88,7 +89,7 @@ export function useHardwareBarcodeScanner({
             targetInput: isInputField ? (target as HTMLInputElement | HTMLTextAreaElement) : null,
           }
         } else {
-          // Rapid typing cadence (< 45ms): hardware barcode burst
+          // Rapid typing cadence: hardware barcode burst
           bufferRef.current.code += e.key
           bufferRef.current.lastTime = now
           if (isInputField) {

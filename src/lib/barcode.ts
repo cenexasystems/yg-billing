@@ -255,6 +255,11 @@ export function buildPrintBarcode(
 /** "167" or "167.50": whole rupees without decimals, otherwise two. */
 export const formatLabelAmount = (n: number): string => (Number.isInteger(n) ? String(n) : n.toFixed(2))
 
+/** Christmas POS label heading: the full greeting when the label is wide enough, otherwise one word. */
+export function christmasLabelTitle(labelWidthMm: number): string {
+  return labelWidthMm >= 45 ? 'MERRY CHRISTMAS' : 'CHRISTMAS'
+}
+
 /**
  * The Christmas POS label prints Retail and Wholesale price on SEPARATE lines
  * ("Retail Price: ₹167.20" / "Wholesale Price: ₹120"). A missing wholesale price shows "₹--".

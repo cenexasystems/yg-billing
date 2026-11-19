@@ -78,15 +78,19 @@ export const BarcodeLabel: React.FC<BarcodeLabelProps> = ({
         >
           {storeName}
         </div>
-        <div
-          className="font-bold text-gray-900 truncate max-w-full leading-tight"
-          style={{
-            fontSize: isSmall ? '6.5px' : isLarge ? '9.5px' : '8px',
-            marginTop: '0.3mm',
-          }}
-        >
-          {fullTitle}
-        </div>
+        {!dualPrice && (
+          <>
+            <div
+              className="font-bold text-gray-900 truncate max-w-full leading-tight"
+              style={{
+                fontSize: isSmall ? '6.5px' : isLarge ? '9.5px' : '8px',
+                marginTop: '0.3mm',
+              }}
+            >
+              {fullTitle}
+            </div>
+          </>
+        )}
         {dualPrice && (
           <div className="flex flex-col items-center leading-tight max-w-full" style={{ marginTop: '0.4mm' }}>
             {([priceLines(wholesalePrice, price).retail, priceLines(wholesalePrice, price).wholesale]).map((line) => (
@@ -111,6 +115,7 @@ export const BarcodeLabel: React.FC<BarcodeLabelProps> = ({
       </div>
 
       {/* Pricing Footer */}
+      {!dualPrice && (
       <div
         className="w-full flex items-center justify-between px-0.5 border-t border-black leading-none shrink-0"
         style={{
@@ -135,6 +140,7 @@ export const BarcodeLabel: React.FC<BarcodeLabelProps> = ({
           </span>
         )}
       </div>
+      )}
     </div>
   )
 }
