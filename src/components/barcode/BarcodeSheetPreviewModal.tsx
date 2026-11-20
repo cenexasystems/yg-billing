@@ -13,6 +13,8 @@ interface BarcodeSheetPreviewModalProps {
   items: BarcodeQueueItem[]
   sizeConfig: LabelSizeConfig
   onPrint: () => void
+  /** Christmas POS labels: heading, prices and barcode only (no item name or category) */
+  dualPrice?: boolean
 }
 
 export const BarcodeSheetPreviewModal: React.FC<BarcodeSheetPreviewModalProps> = ({
@@ -21,6 +23,7 @@ export const BarcodeSheetPreviewModal: React.FC<BarcodeSheetPreviewModalProps> =
   items,
   sizeConfig,
   onPrint,
+  dualPrice = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -158,7 +161,7 @@ export const BarcodeSheetPreviewModal: React.FC<BarcodeSheetPreviewModalProps> =
                 </span>
 
                 {/* Lines */}
-                {label.line1 && (
+                {label.line1 && !dualPrice && (
                   <span
                     className="font-bold text-gray-700 truncate max-w-full leading-tight"
                     style={{ fontSize: `${Math.max(7, Math.round(cardHeightPx * 0.075))}px` }}
@@ -166,7 +169,7 @@ export const BarcodeSheetPreviewModal: React.FC<BarcodeSheetPreviewModalProps> =
                     {label.line1}
                   </span>
                 )}
-                {label.line2 && (
+                {label.line2 && !dualPrice && (
                   <span
                     className="font-semibold text-gray-600 truncate max-w-full leading-tight"
                     style={{ fontSize: `${Math.max(6.5, Math.round(cardHeightPx * 0.07))}px` }}
@@ -184,8 +187,8 @@ export const BarcodeSheetPreviewModal: React.FC<BarcodeSheetPreviewModalProps> =
                 )}
                 {label.line4 && (
                   <span
-                    className="text-gray-500 truncate max-w-full leading-none"
-                    style={{ fontSize: `${Math.max(6, Math.round(cardHeightPx * 0.065))}px` }}
+                    className={`truncate max-w-full leading-none ${dualPrice ? 'font-black text-[#7A1220]' : 'text-gray-500'}`}
+                    style={{ fontSize: `${dualPrice ? Math.max(8, Math.round(cardHeightPx * 0.095)) : Math.max(6, Math.round(cardHeightPx * 0.065))}px` }}
                   >
                     {label.line4}
                   </span>

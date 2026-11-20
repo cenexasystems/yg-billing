@@ -113,7 +113,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
 
   const [itemCode, setItemCode] = useState('')
   const [noOfLabels, setNoOfLabels] = useState<string>('1')
-  const [header, setHeader] = useState(BRAND_EN)
+  const [header, setHeader] = useState(branch === 'pos3' ? christmasLabelTitle() : BRAND_EN)
   const [line1, setLine1] = useState('')
   const [line2, setLine2] = useState('')
   const [line3, setLine3] = useState(branch === 'pos3' ? '' : 'Discount: 0%')
@@ -452,7 +452,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
       for (let i = 0; i < count; i++) {
         allStickers.push(`
           <div class="label-sticker">
-            ${dualPrice ? `<div class="header">${christmasLabelTitle(currentSizeConfig.widthMm)}</div>` : settings.showCompanyName ? `<div class="header">${item.header || BRAND_EN}</div>` : ''}
+            ${dualPrice ? `<div class="header">${esc(item.header || christmasLabelTitle())}</div>` : settings.showCompanyName ? `<div class="header">${item.header || BRAND_EN}</div>` : ''}
             ${settings.showItemName && !dualPrice ? `<div class="prod-title">${fullTitle}</div>` : ''}
             <div class="barcode-box">
               ${svgMarkup}
@@ -916,7 +916,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
                               price: v.price || selectedProduct.price,
                               costPrice: selectedProduct.cost_price || 0,
                               noOfLabels: parseInt(noOfLabels, 10) || 1,
-                              header: header || BRAND_EN,
+                              header: header || (dualPrice ? christmasLabelTitle() : BRAND_EN),
                               line1: selectedProduct.name,
                               line2: `Size: ${v.variantName}`,
                               line3: autoLine3(v.price || selectedProduct.price, selectedProduct),
@@ -1081,7 +1081,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
                               className="font-black uppercase tracking-wider text-gray-900 leading-none truncate max-w-[78%]"
                               style={{ fontSize: `${Math.max(8, Math.round(previewHeightPx * 0.085))}px` }}
                             >
-                              {dualPrice ? christmasLabelTitle(currentSizeConfig.widthMm) : header || BRAND_EN}
+                              {header || (dualPrice ? christmasLabelTitle() : BRAND_EN)}
                             </span>
                           )}
 
@@ -1405,6 +1405,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
           items={queue}
           sizeConfig={currentSizeConfig}
           onPrint={printQueueDirectly}
+          dualPrice={dualPrice}
         />
       )}
     </>,

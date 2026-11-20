@@ -158,7 +158,7 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
     const singleStickerHtml = dualPrice ? `
       <div class="sticker">
         <div class="header">
-          <div class="brand">${christmasLabelTitle(selectedPreset.widthMm)}</div>
+          <div class="brand">${christmasLabelTitle()}</div>
           <div class="price-row">${priceLines(wholesalePrice, price).retail}</div>
           <div class="price-row">${priceLines(wholesalePrice, price).wholesale}</div>
         </div>
@@ -589,7 +589,7 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
                 mrp={mrp}
                 dualPrice={dualPrice}
                 wholesalePrice={wholesalePrice}
-                storeName={dualPrice ? christmasLabelTitle(selectedPreset.widthMm) : footerText}
+                storeName={dualPrice ? christmasLabelTitle() : footerText}
                 widthMm={selectedPreset.widthMm}
                 heightMm={selectedPreset.heightMm}
               />

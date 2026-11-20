@@ -1,5 +1,5 @@
 import React from 'react'
-import { BRAND_ICON } from '../lib/brand'
+import { BRAND_GPAY_NUMBER, BRAND_ICON } from '../lib/brand'
 import { formatPhoneForDisplay } from '../lib/phone'
 import { couponLabel, formatCurrency, formatQuantityValue, normalizeStructuredOrderItem, formatInvoiceNo } from '../lib/retail'
 import { usesFireworksLayout, type PosBranch } from '../store/store'
@@ -134,6 +134,10 @@ export const Invoice: React.FC<InvoiceProps> = ({
             >
               {status}
             </span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#666', textTransform: 'uppercase' }}>GP.</span>
+            <span style={{ fontSize: 12, fontWeight: 800, color: '#111111' }}>{BRAND_GPAY_NUMBER}</span>
           </div>
           {userId && (
             <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px dashed #e5e7eb', display: 'flex', justifyContent: 'space-between' }}>

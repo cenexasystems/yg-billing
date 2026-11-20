@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
-import { BRAND_EN } from './brand'
+import { BRAND_EN, BRAND_GPAY_NUMBER } from './brand'
 import { couponLabel, formatCurrency, formatQuantityValue, normalizeStructuredOrderItem, normalizeUnitLabel, formatInvoiceNo } from './retail'
 import { LOGO_BASE64_POS1, LOGO_BASE64_POS2, LOGO_BASE64_POS3, LOGO_BASE64_POS3_ASPECT } from './logoBase64'
 import { usesFireworksLayout, type PosBranch } from '../store/store'
@@ -89,6 +89,7 @@ export function createInvoicePdf(data: InvoicePdfData): Blob {
   const paymentText = `Payment: ${data.paymentMode || 'POS'}`.replace(/[₹\u20b9]/g, 'Rs. ')
   doc.text(paymentText, right - 2, y + 8, { align: 'right', maxWidth: 100 })
   if (profile.gstin) doc.text(`GSTIN: ${profile.gstin}`, right - 2, y + 14, { align: 'right' })
+  doc.text(`GP. ${BRAND_GPAY_NUMBER}`, right - 2, y + (profile.gstin ? 20 : 14), { align: 'right' })
   y += 28
 
   const customerName = String(data.customerName || 'Walk-in Customer').trim()

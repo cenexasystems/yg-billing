@@ -3910,11 +3910,9 @@ ${pdfUrl}`
                             {normalizeStatus(o.status) === 'completed' ? l('Completed', 'முடிந்தது') : l('Pending', 'நிலுவை')}
                           </span>
                         )}
-                        {usesFireworksLayout(branch) && (
-                          <button onClick={() => openBillEdit(o)} className="h-10 w-10 sm:h-11 sm:w-11 shrink-0 rounded-xl border border-[#E5E7EB]/60 text-[#111111] transition-colors hover:bg-gray-100" title="Edit Bill">
-                            <Edit2 size={14} className="mx-auto" />
-                          </button>
-                        )}
+                        <button onClick={() => openBillEdit(o)} className="h-10 w-10 sm:h-11 sm:w-11 shrink-0 rounded-xl border border-[#E5E7EB]/60 text-[#111111] transition-colors hover:bg-gray-100" title="Edit Bill">
+                          <Edit2 size={14} className="mx-auto" />
+                        </button>
                         {role === 'admin' && (
                           <button onClick={() => void deleteOrder(o.id, o.invoice_no)} className="h-10 w-10 sm:h-11 sm:w-11 shrink-0 rounded-xl border border-[#E5E7EB]/60 text-[#D4AF37] transition-colors hover:bg-[#D4AF37]/5" title="Delete Order">
                             <Trash2 size={14} className="mx-auto" />
@@ -3986,11 +3984,9 @@ ${pdfUrl}`
                                   {normalizeStatus(o.status) === 'completed' ? l('Completed', 'முடிந்தது') : l('Pending', 'நிலுவை')}
                                 </span>
                               )}
-                              {usesFireworksLayout(branch) && (
-                                <button onClick={() => openBillEdit(o)} className="rounded-lg p-1 text-[#111111] transition-colors hover:bg-gray-100" title="Edit Bill">
-                                  <Edit2 size={13} />
-                                </button>
-                              )}
+                              <button onClick={() => openBillEdit(o)} className="rounded-lg p-1 text-[#111111] transition-colors hover:bg-gray-100" title="Edit Bill">
+                                <Edit2 size={13} />
+                              </button>
                               {role === 'admin' && (
                                 <button onClick={() => void deleteOrder(o.id, o.invoice_no)} className="rounded-lg p-1 text-[#D4AF37] transition-colors hover:bg-[#D4AF37]/5" title="Delete Order">
                                   <Trash2 size={13} />
