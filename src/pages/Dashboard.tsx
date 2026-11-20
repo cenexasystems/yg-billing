@@ -2587,7 +2587,6 @@ ${pdfUrl}`
                                           <thead className="bg-[#F9FAFB]">
                                             <tr className="text-left text-[#374151] font-black text-[10px] uppercase tracking-wider">
                                               <th className="px-4 py-2.5">{l('Product', 'பொருள்')}</th>
-                                              <th className="px-4 py-2.5">{l('Variant', 'வகைப்படி')}</th>
                                               <th className="px-4 py-2.5">{l('Size / Weight', 'அளவு / எடை')}</th>
                                               <th className="px-4 py-2.5 text-center">{l('Qty', 'அளவு')}</th>
                                               <th className="px-4 py-2.5">{l('Unit Price', 'ஒரு விலை')}</th>
@@ -2598,9 +2597,6 @@ ${pdfUrl}`
                                             {its.map((raw, idx) => {
                                               const item = raw as Record<string, unknown>
                                               const fullName  = String(item.name || item.product_name || 'Product')
-                                              const dashIdx   = fullName.indexOf(' - ')
-                                              const prodName  = dashIdx > 0 ? fullName.slice(0, dashIdx) : fullName
-                                              const variant   = dashIdx > 0 ? fullName.slice(dashIdx + 3) : '-'
                                               const qty       = toNumber(item.quantity ?? item.qty, 0)
                                               const basePrice = toNumber(item.base_price ?? item.basePrice ?? item.price, 0)
                                               const lineTotal = toNumber(item.line_total ?? item.lineTotal, 0)
@@ -2614,8 +2610,7 @@ ${pdfUrl}`
                                               const priceLabel = formatCurrency(basePrice)
                                               return (
                                                 <tr key={idx} className="hover:bg-blue-50/20">
-                                                  <td className="px-4 py-2.5 font-bold text-[#111111]">{prodName}</td>
-                                                  <td className="px-4 py-2.5 text-[#374151]">{variant}</td>
+                                                  <td className="px-4 py-2.5 font-bold text-[#111111]">{fullName}</td>
                                                   <td className="px-4 py-2.5 text-[#374151]">{sizeLabel}</td>
                                                   <td className="px-4 py-2.5 text-center font-bold">{qty}</td>
                                                   <td className="px-4 py-2.5 text-[#374151]">{priceLabel}</td>
@@ -2626,7 +2621,7 @@ ${pdfUrl}`
                                           </tbody>
                                           <tfoot className="bg-[#F9FAFB] border-t border-[#E5E7EB]/30">
                                             <tr>
-                                              <td colSpan={5} className="px-4 py-2.5 text-right font-black text-[#374151] text-[11px] uppercase tracking-wider">{l('Grand Total', 'மொத்த தொகை')}</td>
+                                              <td colSpan={4} className="px-4 py-2.5 text-right font-black text-[#374151] text-[11px] uppercase tracking-wider">{l('Grand Total', 'மொத்த தொகை')}</td>
                                               <td className="px-4 py-2.5 text-right font-black text-[18px] text-[#111111]">{formatCurrency(getOrderTotal(order))}</td>
                                             </tr>
                                           </tfoot>
@@ -3258,7 +3253,6 @@ ${pdfUrl}`
                               <div className="min-w-0">
                                 <p className="text-[13px] font-black text-[#9BAB9A]">#{i + 1}</p>
                                 <p className="text-[16px] font-bold text-[#111111] break-words">{p.name}</p>
-                                <p className="text-[13px] text-[#374151]">{p.variant || 'No variant'}</p>
                               </div>
                               <p className="text-[14px] font-black text-emerald-700">{formatCurrency(p.revenue)}</p>
                             </div>
@@ -3285,7 +3279,6 @@ ${pdfUrl}`
                             <tr>
                               <th className="px-4 py-2.5 font-black">#</th>
                               <th className="px-4 py-2.5 font-black">Product</th>
-                              <th className="px-4 py-2.5 font-black">Variant / SKU</th>
                               <th className="px-4 py-2.5 font-black">Qty Sold</th>
                               <th className="px-4 py-2.5 font-black">Revenue</th>
                               <th className="px-4 py-2.5 font-black">Bills</th>
@@ -3297,7 +3290,6 @@ ${pdfUrl}`
                               <tr key={`${p.name}-${p.variant || i}`} className="hover:bg-[#F9FAFB]/50">
                                 <td className="px-4 py-2 text-[11px] text-[#9BAB9A] font-bold">{i + 1}</td>
                                 <td className="px-4 py-2 font-bold text-[#111111]">{p.name}</td>
-                                <td className="px-4 py-2 text-[#374151]">{p.variant || '-'}</td>
                                 <td className="px-4 py-2 font-bold">{Math.round(p.qty)}</td>
                                 <td className="px-4 py-2 font-bold text-emerald-700">{formatCurrency(p.revenue)}</td>
                                 <td className="px-4 py-2 text-[#374151]">{p.billCount}</td>
