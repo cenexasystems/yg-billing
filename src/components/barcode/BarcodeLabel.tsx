@@ -95,7 +95,7 @@ export const BarcodeLabel: React.FC<BarcodeLabelProps> = ({
           <div className="flex flex-col items-center leading-tight max-w-full" style={{ marginTop: '0.4mm' }}>
             <div
               className="font-black text-black whitespace-nowrap max-w-full"
-              style={{ fontSize: isSmall ? '7.5px' : isLarge ? '11px' : '9px' }}
+              style={{ fontSize: isSmall ? '8.5px' : isLarge ? '12px' : '10px', WebkitTextStroke: '0.4px #000' }}
             >
               {priceLines(wholesalePrice, price).retail}
             </div>

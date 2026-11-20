@@ -609,8 +609,10 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
               flex-shrink: 0;
             }
             .price-line.rp {
-              font-size: ${isSmall ? '7.5pt' : isLarge ? '10pt' : '8.5pt'};
+              font-size: ${isSmall ? '8.5pt' : isLarge ? '11pt' : '9.5pt'};
               font-weight: 900;
+              -webkit-text-stroke: 0.45px #000;
+              letter-spacing: 0.2px;
             }
             .price-line.wp {
               font-weight: 700;
@@ -1104,7 +1106,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
                           {dualPrice && (
                             <span
                               className="font-black text-black truncate max-w-full leading-none"
-                              style={{ fontSize: `${Math.max(9.5, Math.round(previewHeightPx * 0.105))}px` }}
+                              style={{ fontSize: `${Math.max(10.5, Math.round(previewHeightPx * 0.115))}px`, WebkitTextStroke: '0.4px #000' }}
                             >
                               {stripRupee(line3) || priceLines(selectedProduct?.wholesale_price, selectedProduct?.price || 0).retail}
                             </span>

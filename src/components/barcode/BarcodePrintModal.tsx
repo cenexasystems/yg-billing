@@ -318,8 +318,10 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
               line-height: 1.1;
             }
             .price-row.rp {
-              font-size: ${isSmall ? '7.5pt' : isLarge ? '11pt' : '9pt'};
+              font-size: ${isSmall ? '8.5pt' : isLarge ? '12pt' : '10pt'};
               font-weight: 900;
+              -webkit-text-stroke: 0.45px #000;
+              letter-spacing: 0.2px;
             }
             .price-row.wp {
               font-weight: 700;

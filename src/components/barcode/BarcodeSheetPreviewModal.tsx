@@ -146,7 +146,7 @@ export const BarcodeSheetPreviewModal: React.FC<BarcodeSheetPreviewModalProps> =
                 {dualPrice && label.line3 && (
                   <span
                     className="font-black text-black truncate max-w-full leading-none"
-                    style={{ fontSize: `${Math.max(9, Math.round(cardHeightPx * 0.105))}px` }}
+                    style={{ fontSize: `${Math.max(10, Math.round(cardHeightPx * 0.115))}px`, WebkitTextStroke: '0.4px #000' }}
                   >
                     {dualPrice ? stripRupee(label.line3) : label.line3}
                   </span>
