@@ -32,13 +32,15 @@ type FormState = {
   gstRate: string
   wholesaleGstEnabled: boolean
   wholesaleGstRate: string
+  lowStockAlertsEnabled: boolean
+  lowStockThreshold: string
   themeColor: string
   logoUrl: string
 }
 
 const emptyForm: FormState = {
   name: '', ownerName: '', businessType: '', phoneNumber: '', shopContactNumber: '',
-  email: '', address: '', instagramId: '', googleReviewUrl: '', gstin: '', gstEnabled: false, gstRate: '18', wholesaleGstEnabled: false, wholesaleGstRate: '18', themeColor: '#8B1A1A', logoUrl: '',
+  email: '', address: '', instagramId: '', googleReviewUrl: '', gstin: '', gstEnabled: false, gstRate: '18', wholesaleGstEnabled: false, wholesaleGstRate: '18', lowStockAlertsEnabled: true, lowStockThreshold: '5', themeColor: '#8B1A1A', logoUrl: '',
 }
 
 export default function StoreSettingsView() {
@@ -93,6 +95,8 @@ export default function StoreSettingsView() {
       gstRate: String(currentBranchSettings.gstRate ?? 18),
       wholesaleGstEnabled: Boolean(currentBranchSettings.wholesaleGstEnabled),
       wholesaleGstRate: String(currentBranchSettings.wholesaleGstRate || 18),
+      lowStockAlertsEnabled: currentBranchSettings.lowStockAlertsEnabled !== false,
+      lowStockThreshold: String(currentBranchSettings.lowStockThreshold || 5),
       themeColor: currentBranchSettings.themeColor || DEFAULT_BRANCH_COLOR[target],
       logoUrl: currentBranchSettings.logoUrl || '',
     })
@@ -110,7 +114,7 @@ export default function StoreSettingsView() {
     setForm({
       name: currentBranchSettings.name, ownerName: currentBranchSettings.ownerName, businessType: currentBranchSettings.businessType,
       phoneNumber, shopContactNumber: shopContactNumber || phoneNumber, email: currentBranchSettings.email,
-      address: currentBranchSettings.address, instagramId: currentBranchSettings.instagramId, googleReviewUrl: currentBranchSettings.googleReviewUrl || '', gstin: currentBranchSettings.gstin || '', gstEnabled: currentBranchSettings.gstEnabled, gstRate: String(currentBranchSettings.gstRate ?? 18), wholesaleGstEnabled: Boolean(currentBranchSettings.wholesaleGstEnabled), wholesaleGstRate: String(currentBranchSettings.wholesaleGstRate || 18), themeColor: currentBranchSettings.themeColor,
+      address: currentBranchSettings.address, instagramId: currentBranchSettings.instagramId, googleReviewUrl: currentBranchSettings.googleReviewUrl || '', gstin: currentBranchSettings.gstin || '', gstEnabled: currentBranchSettings.gstEnabled, gstRate: String(currentBranchSettings.gstRate ?? 18), wholesaleGstEnabled: Boolean(currentBranchSettings.wholesaleGstEnabled), wholesaleGstRate: String(currentBranchSettings.wholesaleGstRate || 18), lowStockAlertsEnabled: currentBranchSettings.lowStockAlertsEnabled !== false, lowStockThreshold: String(currentBranchSettings.lowStockThreshold || 5), themeColor: currentBranchSettings.themeColor,
       logoUrl: currentBranchSettings.logoUrl || '',
     })
     setMessage(null)
@@ -152,6 +156,7 @@ export default function StoreSettingsView() {
         logo_url: form.logoUrl || null,
         updated_at: new Date().toISOString(),
       }
+      const lowStockLevel = Math.max(1, Math.round(Number(form.lowStockThreshold) || 5))
       const reviewUrl = form.googleReviewUrl.trim()
       let reviewColumnMissing = false
       let { data: updated, error } = await supabase
@@ -169,6 +174,18 @@ export default function StoreSettingsView() {
           .select('id'))
       }
       if (error) throw error
+      // Low stock settings are saved separately so the rest still saves before migration 0050 is run
+      let lowStockColumnMissing = false
+      if (updated && updated.length > 0) {
+        const { error: lowErr } = await supabase
+          .from('store_settings')
+          .update({ low_stock_alerts_enabled: form.lowStockAlertsEnabled, low_stock_threshold: lowStockLevel })
+          .eq('branch', branchToSave)
+        if (lowErr) {
+          if (/low_stock/i.test(lowErr.message || '')) lowStockColumnMissing = true
+          else throw lowErr
+        }
+      }
       if (!updated || updated.length === 0) {
         const { error: insErr } = await supabase
           .from('store_settings')
@@ -178,13 +195,38 @@ export default function StoreSettingsView() {
       await fetchSettings(branchToSave)
       // Apply active theme immediately so the UI reflects the change right away
       applyActiveTheme(activeBranch, role, { ...settingsByBranch, [branchToSave]: { ...settingsByBranch[branchToSave]!, themeColor: form.themeColor } }, staffBranch)
-      setMessage(reviewColumnMissing && reviewUrl
+      setMessage(lowStockColumnMissing
+        ? { type: 'error', text: 'Settings saved, but the Low Stock settings need a database update first (migration 0050_store_low_stock_settings). Run it in Supabase, then save again.' }
+        : reviewColumnMissing && reviewUrl
         ? { type: 'error', text: 'Settings saved, but the Google review link needs a database update first (migration 0046_store_google_review_url). Run it in Supabase, then save again.' }
         : { type: 'success', text: `${branchShortLabel(branchToSave)} settings & theme saved successfully.` })
     } catch (err) {
       setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to save settings' })
     } finally {
       setSaving(false)
+    }
+  }
+
+  const [applyingLowStock, setApplyingLowStock] = useState(false)
+  /** Sets the low stock alert level on every product of this POS */
+  const handleApplyLowStockToAll = async () => {
+    if (target === 'admin') return
+    const level = Math.max(1, Math.round(Number(form.lowStockThreshold) || 5))
+    if (!window.confirm(`Set the low stock alert to ${level} for every product in ${branchShortLabel(target)}?`)) return
+    setApplyingLowStock(true)
+    setMessage(null)
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .update({ low_stock_alert: level })
+        .eq('branch', target)
+        .select('id')
+      if (error) throw error
+      setMessage({ type: 'success', text: `Low stock alert set to ${level} on ${data?.length ?? 0} products in ${branchShortLabel(target)}.` })
+    } catch (err) {
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not update the products' })
+    } finally {
+      setApplyingLowStock(false)
     }
   }
 
@@ -515,6 +557,43 @@ export default function StoreSettingsView() {
                   )}
                 </div>
               )}
+              <div className="rounded-xl border border-gray-200 bg-[#FBFAF6] p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">Low stock alarm</p>
+                    <p className="mt-0.5 text-[10px] font-semibold text-gray-500">Sound and pop-up when a product of this POS runs low.</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={form.lowStockAlertsEnabled}
+                    aria-label="Low stock alarm"
+                    onClick={() => setForm((f) => ({ ...f, lowStockAlertsEnabled: !f.lowStockAlertsEnabled }))}
+                    className={`shrink-0 w-10 h-6 rounded-full p-0.5 transition-colors ${form.lowStockAlertsEnabled ? 'bg-[#7A1220]' : 'bg-gray-300'}`}
+                  >
+                    <span className={`block w-5 h-5 rounded-full bg-white transition-transform ${form.lowStockAlertsEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </button>
+                </div>
+                <div className="mt-3">
+                  <label className="block text-[10px] font-black uppercase tracking-wide text-gray-500 mb-1">Low stock alert level</label>
+                  <input
+                    type="number" min={1} step={1}
+                    value={form.lowStockThreshold}
+                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                    onChange={(e) => setForm((f) => ({ ...f, lowStockThreshold: e.target.value }))}
+                    className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-white text-sm font-bold outline-none focus:border-gray-400"
+                  />
+                  <p className="mt-1 text-[10px] font-semibold text-gray-500">A product is low when its stock is at or below this level. New products start with it, and each product can still have its own level in Edit Product.</p>
+                  <button
+                    type="button"
+                    onClick={handleApplyLowStockToAll}
+                    disabled={applyingLowStock}
+                    className="mt-2 h-9 px-3 rounded-lg border border-gray-300 bg-white text-[11px] font-black text-gray-800 hover:bg-gray-50 disabled:opacity-60 inline-flex items-center gap-1.5"
+                  >
+                    {applyingLowStock && <Loader2 size={12} className="animate-spin" />} Apply this level to all products now
+                  </button>
+                </div>
+              </div>
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-wide text-gray-500 mb-1">Shop Address</label>
                 <textarea value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} rows={2} className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-[#FBFAF6] text-sm font-bold outline-none focus:border-gray-400 resize-none" />

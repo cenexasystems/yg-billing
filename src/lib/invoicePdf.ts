@@ -41,6 +41,19 @@ const money = (value: number): string => {
 export function createInvoicePdf(data: InvoicePdfData): Blob {
   const formattedNo = formatInvoiceNo(data.invoiceNo)
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  // Extra-heavy text: every piece of text is filled and outlined in its own colour,
+  // so it reads bolder than Helvetica Bold alone on phone and desktop viewers.
+  const plainText = doc.text.bind(doc)
+  doc.text = ((text: string | string[], x: number, y: number, options?: Record<string, unknown>) => {
+    const drawColor = doc.getDrawColor()
+    const lineWidth = doc.getLineWidth()
+    doc.setDrawColor(doc.getTextColor())
+    doc.setLineWidth(0.18)
+    const result = plainText(text, x, y, { ...(options || {}), renderingMode: 'fillThenStroke' })
+    doc.setDrawColor(drawColor)
+    doc.setLineWidth(lineWidth)
+    return result
+  }) as typeof doc.text
   const pageWidth = 210
   const left = 16
   const right = 194

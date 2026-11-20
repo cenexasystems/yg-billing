@@ -11,7 +11,7 @@ import {
   Edit2,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { useProductStore, useAdminAuthStore, resolveBranch, type Product } from '../../store/store'
+import { useProductStore, useAdminAuthStore, useSettingsStore, resolveBranch, type Product } from '../../store/store'
 import { fetchVariantsByProduct } from '../../services/variantService'
 import { inventoryService, type CategoryRecord } from '../../services/inventoryService'
 import { normalizeBarcode } from '../../lib/barcode'
@@ -53,9 +53,11 @@ export const AddEditProductView: React.FC<{
   // Christmas POS (POS 3) only: wholesale price, stored on the product row
   const [wholesalePrice, setWholesalePrice] = useState<string>('')
   const isChristmas = branch === 'pos3'
+  // Store Settings -> Low stock alert level: the starting level for new products on this POS
+  const defaultLowStock = String(useSettingsStore((st) => st.settingsByBranch[branch]?.lowStockThreshold) || 5)
   const [purchasePrice, setPurchasePrice] = useState<string>('')
   const [stockQuantity, setStockQuantity] = useState<string>('0')
-  const [lowStockAlert, setLowStockAlert] = useState<string>('5')
+  const [lowStockAlert, setLowStockAlert] = useState<string>(defaultLowStock)
   const [barcode, setBarcode] = useState<string>('')
   const [description, setDescription] = useState<string>('')
   const [hasVariants, setHasVariants] = useState<boolean>(false)
@@ -90,7 +92,7 @@ export const AddEditProductView: React.FC<{
     setPurchasePrice('')
     setWholesalePrice('')
     setStockQuantity('0')
-    setLowStockAlert('5')
+    setLowStockAlert(defaultLowStock)
     setBarcode('')
     setDescription('')
     setHasVariants(false)
@@ -836,9 +838,16 @@ export const AddEditProductView: React.FC<{
                     <div className="flex items-center gap-2 shrink-0">
                       <div className="text-right">
                         <span className="font-black text-xs text-gray-900 tabular-nums">₹{p.price}</span>
-                        <span className="block text-[10px] text-emerald-700 font-bold tabular-nums">
-                          Stock: {p.stockQuantity ?? p.stock ?? 0}
-                        </span>
+                        {(() => {
+                          const left = Number(p.stockQuantity ?? p.stock ?? 0) || 0
+                          const limit = Number(p.lowStockAlert) > 0 ? Number(p.lowStockAlert) : 5
+                          const low = isChristmas && left <= limit
+                          return (
+                            <span className={`block text-[10px] font-bold tabular-nums ${low ? 'text-red-600' : 'text-emerald-700'}`}>
+                              {low ? (left <= 0 ? 'Out of stock' : `Low stock: ${left}`) : `Stock: ${left}`}
+                            </span>
+                          )
+                        })()}
                       </div>
 
                       <div className="flex items-center gap-1">
@@ -1144,7 +1153,31 @@ export const AddEditProductView: React.FC<{
               />
             </div>
 
-            {/* Variant Switch & Matrix */}
+            {/* Christmas POS: low stock indication for this product */}
+            {isChristmas && (() => {
+              const left = Number(stockQuantity) || 0
+              const limit = Number(lowStockAlert) > 0 ? Number(lowStockAlert) : 5
+              const out = left <= 0
+              const low = left <= limit
+              return (
+                <div className={`border rounded-2xl p-4 flex items-center justify-between gap-3 ${out ? 'border-red-300 bg-red-50' : low ? 'border-amber-300 bg-amber-50' : 'border-emerald-200 bg-emerald-50'}`}>
+                  <div>
+                    <span className={`text-xs font-black flex items-center gap-1.5 ${out ? 'text-red-700' : low ? 'text-amber-700' : 'text-emerald-700'}`}>
+                      <Tag size={14} /> {out ? 'Out of Stock' : low ? 'Low Stock' : 'In Stock'}
+                    </span>
+                    <p className="text-[11px] text-gray-600 font-medium">
+                      {left} in stock · alert when stock is {limit} or less
+                    </p>
+                  </div>
+                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${out ? 'bg-red-600 text-white' : low ? 'bg-amber-500 text-white' : 'bg-emerald-600 text-white'}`}>
+                    {left} left
+                  </span>
+                </div>
+              )
+            })()}
+
+            {/* Variant Switch & Matrix (removed on every POS; only shown for an old product that already has variants) */}
+            {hasVariants && (
             <div className="border border-gray-200 rounded-2xl p-4 bg-white space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -1417,6 +1450,7 @@ export const AddEditProductView: React.FC<{
                 </div>
               )}
             </div>
+            )}
           </div>
 
           {/* Pinned Bottom Actions */}

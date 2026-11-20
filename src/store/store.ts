@@ -171,6 +171,10 @@ export interface StoreSettings {
   wholesaleGstRate?: number
   /** GST registration number printed on invoices and receipts */
   gstin: string
+  /** Low stock alarm on/off for this POS (default on) */
+  lowStockAlertsEnabled?: boolean
+  /** Alert level given to new products on this POS (default 5) */
+  lowStockThreshold?: number
 }
 
 interface SettingsState {
@@ -648,6 +652,8 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
           wholesaleGstEnabled: Boolean(data.wholesale_gst_enabled),
           wholesaleGstRate: Math.max(0, Number(data.wholesale_gst_rate) || 0),
           gstin: String(data.gstin || '').trim(),
+          lowStockAlertsEnabled: data.low_stock_alerts_enabled !== false,
+          lowStockThreshold: Number(data.low_stock_threshold) > 0 ? Number(data.low_stock_threshold) : 5,
         }
         set((state) => ({
           settings: resolved,

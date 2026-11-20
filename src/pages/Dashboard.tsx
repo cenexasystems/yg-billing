@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState, useMemo, useRef, type FormEven
 import { createPortal } from 'react-dom'
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 import {
-  BarChart2, Trash2, Edit2, List, ShoppingCart, LayoutDashboard,
+  BarChart2, Trash2, Edit2, List, ShoppingCart,
   Box, AlertCircle, ArrowUp, ArrowDown, Power, Download, TrendingUp, TrendingDown,
   Package, Search, RefreshCw, ShieldCheck, ShieldOff, Trophy,
   MessageCircle, ChevronDown, Eye, FileText, Printer, MoreVertical, X, Layers, Receipt,
@@ -339,6 +339,8 @@ export default function Dashboard() {
   // Analytics global date filter
   const [analyticsDatePreset, setAnalyticsDatePreset] = useState<'all' | 'today' | 'week' | 'month' | 'year' | 'custom'>('all')
   const [analyticsDateFrom, setAnalyticsDateFrom] = useState('')
+  // Christmas POS: tapping Total Revenue opens the Retail / Wholesale split
+  const [showRevenueSplit, setShowRevenueSplit] = useState(false)
   const [analyticsDateTo, setAnalyticsDateTo] = useState('')
   const [expenses, setExpenses] = useState<ExpenseRecord[]>([])
 
@@ -2848,7 +2850,10 @@ ${pdfUrl}`
                   {[
                     {
                       label: 'Total Revenue',
-                      helper: 'Completed POS, manual, and fully paid advance orders',
+                      helper: branch === 'pos3'
+                        ? (showRevenueSplit ? 'Tap to hide Retail / Wholesale split' : 'Tap to see Retail / Wholesale split')
+                        : 'Completed POS, manual, and fully paid advance orders',
+                      onClick: branch === 'pos3' ? () => setShowRevenueSplit(v => !v) : undefined,
                       value: formatCurrency(analytics.totalCompletedRevenue),
                       icon: <RMIcon size={16} />,
                       color: 'text-emerald-500',
@@ -2881,30 +2886,6 @@ ${pdfUrl}`
                       bg: 'bg-emerald-50',
                     },
                     {
-                      label: 'Offline Revenue',
-                      helper: 'Walk-in POS sales',
-                      value: formatCurrency(analytics.posRevenue),
-                      icon: <RMIcon size={16} />,
-                      color: 'text-cyan-500',
-                      bg: 'bg-cyan-50',
-                    },
-                    {
-                      label: 'Total Offline Bills',
-                      helper: 'Walk-in POS orders',
-                      value: String(analytics.offlineOrderCount),
-                      icon: <LayoutDashboard size={16} />,
-                      color: 'text-red-500',
-                      bg: 'bg-red-50',
-                    },
-                    {
-                      label: 'Total Online Bills',
-                      helper: 'Live completed online bills',
-                      value: String(analytics.onlineBillCount),
-                      icon: <Box size={16} />,
-                      color: 'text-blue-500',
-                      bg: 'bg-blue-50',
-                    },
-                    {
                       label: 'Total Items Sold',
                       helper: 'Items on completed POS, manual, and advance invoices',
                       value: String(Math.round(analytics.totalProductsSold)),
@@ -2920,16 +2901,15 @@ ${pdfUrl}`
                       color: 'text-emerald-500',
                       bg: 'bg-emerald-50',
                     },
-                    {
-                      label: 'Top Product',
-                      helper: 'Most sold item',
-                      value: analytics.bestProduct || 'No sales yet',
-                      icon: <Trophy size={16} />,
-                      color: 'text-pink-500',
-                      bg: 'bg-pink-50',
-                    },
-                  ].map((card, index) => (
-                    <div key={index} className="bg-white rounded-card border border-borderLight p-5 sm:p-5 shadow-soft flex flex-col justify-between hover:shadow-md transition-shadow">
+                  ].map((card: { label: string; helper: string; value: string; icon: React.ReactNode; color: string; bg: string; valueColor?: string; arrow?: string; onClick?: () => void }, index) => (
+                    <div
+                      key={index}
+                      onClick={card.onClick}
+                      role={card.onClick ? 'button' : undefined}
+                      tabIndex={card.onClick ? 0 : undefined}
+                      onKeyDown={card.onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card.onClick?.() } } : undefined}
+                      className={`bg-white rounded-card border p-5 sm:p-5 shadow-soft flex flex-col justify-between hover:shadow-md transition-shadow ${card.onClick ? `cursor-pointer ${showRevenueSplit ? 'border-[#D4AF37] ring-1 ring-[#D4AF37]/40' : 'border-borderLight'}` : 'border-borderLight'}`}
+                    >
                       <div>
                         <div className="flex items-start justify-between gap-2 mb-3">
                           <p className="text-[11px] font-bold text-[#111111]">{card.label}</p>
@@ -2950,6 +2930,34 @@ ${pdfUrl}`
                     </div>
                   ))}
                 </div>
+
+                {/* Christmas POS: Total Revenue split into Retail and Wholesale bills */}
+                {branch === 'pos3' && showRevenueSplit && (
+                  <div className="bg-white rounded-card border border-[#D4AF37]/60 p-5 shadow-soft">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-[13px] font-black text-[#111111]">Revenue by Price Type</p>
+                      <button type="button" onClick={() => setShowRevenueSplit(false)} className="text-[11px] font-bold text-[#6B7280] hover:text-[#111111]">Close</button>
+                    </div>
+                    <div className="divide-y divide-[#EFEFEF]">
+                      {[
+                        { label: 'Retail Price Bills', value: analytics.retailRevenue, count: analytics.retailBillCount },
+                        { label: 'Wholesale Price Bills', value: analytics.wholesaleRevenue, count: analytics.wholesaleBillCount },
+                      ].map(row => (
+                        <div key={row.label} className="flex items-center justify-between py-2.5">
+                          <div>
+                            <p className="text-[13px] font-bold text-[#111111]">{row.label}</p>
+                            <p className="text-[11px] text-[#6B7280]">{row.count} bill{row.count === 1 ? '' : 's'}</p>
+                          </div>
+                          <p className="text-[16px] font-black text-[#111111] tabular-nums">{formatCurrency(row.value)}</p>
+                        </div>
+                      ))}
+                      <div className="flex items-center justify-between pt-3">
+                        <p className="text-[14px] font-black text-[#111111]">Total</p>
+                        <p className="text-[18px] font-black text-emerald-600 tabular-nums">{formatCurrency(analytics.retailRevenue + analytics.wholesaleRevenue)}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Payment mode boxes: a split bill is counted in each mode it used */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

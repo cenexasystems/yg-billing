@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import type { PosBranch } from '../store/store'
+import { useSettingsStore, type PosBranch } from '../store/store'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { useAlarmStore, type LowStockItem } from '../store/alarmStore'
 import { alarmSound } from '../lib/alarmAudio'
@@ -25,7 +25,7 @@ export function useLowStockMonitor(enabled: boolean = true, role?: string | null
       const checkedBranch = branchRef.current
       let prodQuery = supabase
         .from('products')
-        .select('id, name, stock_quantity, low_stock_alert, barcode, has_variants, category, category_id')
+        .select('id, name, stock_quantity, low_stock_alert, barcode, has_variants, category, category_id, branch')
         .eq('is_active', true)
         .eq('has_variants', false)
       if (checkedBranch) prodQuery = prodQuery.eq('branch', checkedBranch)
@@ -38,7 +38,7 @@ export function useLowStockMonitor(enabled: boolean = true, role?: string | null
       // 2. Fetch active variants
       let variantQuery = supabase
         .from('product_variants')
-        .select('id, variant_name, stock, barcode, product_id, is_active, products(name, category, category_id, is_active)')
+        .select('id, variant_name, stock, barcode, product_id, is_active, branch, products(name, category, category_id, is_active)')
         .eq('is_active', true)
       if (checkedBranch) variantQuery = variantQuery.eq('branch', checkedBranch)
       const { data: variants, error: varErr } = await variantQuery
@@ -48,9 +48,13 @@ export function useLowStockMonitor(enabled: boolean = true, role?: string | null
       }
 
       const flagged: LowStockItem[] = []
+      // Store Settings -> Low stock alarm: a POS with the alarm switched off never raises it
+      const byBranch = useSettingsStore.getState().settingsByBranch
+      const alarmOff = (b?: string | null) => Boolean(b && byBranch[b as PosBranch]?.lowStockAlertsEnabled === false)
 
       // Check standard products (Only alert for actual inventory running low: 0 < stock <= threshold)
       for (const p of prods || []) {
+        if (alarmOff(p.branch)) continue
         if (
           (p.category && p.category.trim().toLowerCase() === 'unregistered') ||
           p.category_id === 4
@@ -75,6 +79,7 @@ export function useLowStockMonitor(enabled: boolean = true, role?: string | null
 
       // Check product variants (alert for variants running low or out of stock)
       for (const v of variants || []) {
+        if (alarmOff(v.branch)) continue
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const parentProd = v.products as any
         if (parentProd && parentProd.is_active === false) {
