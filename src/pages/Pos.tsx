@@ -42,6 +42,7 @@ import { useLangStore } from '../store/langStore'
 import { fetchVariantsByProduct, type ProductVariant } from '../services/variantService'
 import { BarcodeScannerInput, type ScannedItemPayload } from '../components/pos/BarcodeScannerInput'
 import { AddUnregisteredItemModal } from '../components/pos/AddUnregisteredItemModal'
+import { CustomerPhoneInput, type CustomerSuggestion } from '../components/pos/CustomerPhoneInput'
 import { getOrCreateUnregisteredProduct } from '../services/productService'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -176,6 +177,10 @@ export default function Pos(props: PosProps = {}) {
   const [activeCategory, setActiveCategory] = useState('All')
   const [items, setItems] = useState<PosItem[]>([])
   const [customer, setCustomer] = useState({ name: '', phone: '', address: '' })
+  // Picking a past customer of this POS from the mobile number dropdown fills their details
+  const pickCustomer = useCallback((c: CustomerSuggestion) => {
+    setCustomer(prev => ({ name: c.name || prev.name, phone: c.phone, address: c.address || prev.address }))
+  }, [])
   const [remarks, setRemarks] = useState('')
   const [referenceNumber, setReferenceNumber] = useState('')
   const [billingDate, setBillingDate] = useState('') // '' = use current date/time
@@ -1524,10 +1529,11 @@ export default function Pos(props: PosProps = {}) {
               </div>
               <div className="min-w-0">
                 <label className="block text-[11px] md:text-[10px] font-bold text-[#374151] mb-1">Mobile Number (WhatsApp)</label>
-                <input
-                  type="text"
+                <CustomerPhoneInput
+                  branch={branch}
                   value={customer.phone}
-                  onChange={e => setCustomer({...customer, phone: e.target.value})}
+                  onChange={phone => setCustomer(c => ({ ...c, phone }))}
+                  onSelect={pickCustomer}
                   placeholder="Enter WhatsApp number"
                   className="w-full min-w-0 max-w-full box-border h-10 sm:h-11 px-3 sm:px-4 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#D4AF37] text-[13px] font-bold text-[#111111] placeholder:text-gray-400 placeholder:font-medium"
                 />
@@ -1606,13 +1612,13 @@ export default function Pos(props: PosProps = {}) {
                       aria-label="Customer Name"
                       className="w-full min-w-0 box-border h-10 px-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#D4AF37] text-[13px] font-bold text-[#111111] placeholder:text-gray-400 placeholder:font-medium"
                     />
-                    <input
-                      type="text"
-                      inputMode="tel"
+                    <CustomerPhoneInput
+                      branch={branch}
                       value={customer.phone}
-                      onChange={e => setCustomer({ ...customer, phone: e.target.value })}
+                      onChange={phone => setCustomer(c => ({ ...c, phone }))}
+                      onSelect={pickCustomer}
                       placeholder="Mobile (WhatsApp)"
-                      aria-label="Mobile Number (WhatsApp)"
+                      ariaLabel="Mobile Number (WhatsApp)"
                       className="w-full min-w-0 box-border h-10 px-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#D4AF37] text-[13px] font-bold text-[#111111] placeholder:text-gray-400 placeholder:font-medium"
                     />
                   </div>
@@ -1885,10 +1891,11 @@ export default function Pos(props: PosProps = {}) {
                   </div>
                   <div className="p-2">
                     <span className="text-[10px] text-[#374151] uppercase block mb-0.5">WhatsApp Number</span>
-                    <input
-                      type="text"
+                    <CustomerPhoneInput
+                      branch={branch}
                       value={customer.phone}
-                      onChange={e => setCustomer({...customer, phone: e.target.value})}
+                      onChange={phone => setCustomer(c => ({ ...c, phone }))}
+                      onSelect={pickCustomer}
                       placeholder="Enter WhatsApp number"
                       className={`w-full h-8 px-2 bg-white border rounded-lg text-[12px] font-bold text-[#111111] focus:outline-none ${customer.phone && !normalizePhone(customer.phone) ? 'border-red-400 bg-red-50' : 'border-gray-200 focus:border-[#D4AF37]'}`}
                     />
