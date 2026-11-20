@@ -21,6 +21,7 @@ import {
   renderBarcodeSvg,
   buildPrintBarcode,
   priceLines,
+  stripRupee,
   christmasLabelTitle,
   PRINT_BARCODE_CSS,
 } from '../../lib/barcode'
@@ -447,8 +448,8 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
       const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       const fullTitle = esc(item.line1 || `${item.productName}${item.variantName ? ` (${item.variantName})` : ''}`)
       // Line 3 defaults to "Price: ₹…"; skip it when the price is already printed in the footer
-      const line3 = item.line3 && !(settings.showSalePrice && /^price\s*:/i.test(item.line3)) ? esc(item.line3) : ''
-      const line4 = item.line4 ? esc(item.line4) : ''
+      const line3 = item.line3 && !(settings.showSalePrice && /^price\s*:/i.test(item.line3)) ? esc(dualPrice ? stripRupee(item.line3) : item.line3) : ''
+      const line4 = item.line4 ? esc(dualPrice ? stripRupee(item.line4) : item.line4) : ''
       // Scanner-readable bars: whole printer dots, white quiet zone, exact mm size
       const svgMarkup = buildPrintBarcode(item.barcodeValue, {
         labelWidthMm: currentSizeConfig.widthMm,
@@ -1105,7 +1106,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
                               className="font-black text-black truncate max-w-full leading-none"
                               style={{ fontSize: `${Math.max(9.5, Math.round(previewHeightPx * 0.105))}px` }}
                             >
-                              {line3 || priceLines(selectedProduct?.wholesale_price, selectedProduct?.price || 0).retail}
+                              {stripRupee(line3) || priceLines(selectedProduct?.wholesale_price, selectedProduct?.price || 0).retail}
                             </span>
                           )}
 
@@ -1161,7 +1162,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
                               className={`truncate max-w-full leading-none ${dualPrice ? 'font-bold text-black' : 'text-gray-500'}`}
                               style={{ fontSize: `${dualPrice ? Math.max(8.5, Math.round(previewHeightPx * 0.095)) : Math.max(6.5, Math.round(previewHeightPx * 0.065))}px` }}
                             >
-                              {line4}
+                              {dualPrice ? stripRupee(line4) : line4}
                             </span>
                           )}
                         </div>

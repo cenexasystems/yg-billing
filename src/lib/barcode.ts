@@ -262,12 +262,15 @@ export function christmasLabelTitle(): string {
 
 /**
  * The Christmas POS label prints Retail and Wholesale price on SEPARATE lines, as
- * RP (retail) and WP (wholesale): "RP: ₹167.20" / "WP: ₹120". A missing wholesale price shows "₹--".
+ * RP (retail) and WP (wholesale): "RP: 167.20" / "WP: 120" (no rupee symbol). A missing wholesale price shows "--".
  */
+/** Christmas labels print prices without the rupee symbol. */
+export const stripRupee = (text: string): string => text.replace(/₹\s*/g, '')
+
 export function priceLines(wholesale: number | null | undefined, retail: number): { retail: string; wholesale: string } {
-  const w = wholesale != null && Number(wholesale) > 0 ? `₹${formatLabelAmount(Number(wholesale))}` : '₹--'
+  const w = wholesale != null && Number(wholesale) > 0 ? formatLabelAmount(Number(wholesale)) : '--'
   return {
-    retail: `RP: ₹${formatLabelAmount(Number(retail) || 0)}`,
+    retail: `RP: ${formatLabelAmount(Number(retail) || 0)}`,
     wholesale: `WP: ${w}`,
   }
 }

@@ -46,7 +46,7 @@ export function createInvoicePdf(data: InvoicePdfData): Blob {
   const right = 194
   const primaryColor = '#D4AF37' // Flamingo Pink
   const ink = '#18202a'
-  const muted = '#68717c'
+  const muted = '#2f3640'
   let y = 16
 
   doc.setFont('helvetica', 'bold')
@@ -78,8 +78,8 @@ export function createInvoicePdf(data: InvoicePdfData): Blob {
   doc.setTextColor('#7A1220')
   doc.text(BRAND_EN, left + 35, y + 10)
   doc.setFontSize(8)
-  doc.setTextColor('#555')
-  doc.setFont('helvetica', 'normal')
+  doc.setTextColor('#222')
+  doc.setFont('helvetica', 'bold')
   const profile = getBranchProfile(data.branch)
   doc.text(profile.address, left + 35, y + 17, { maxWidth: 80 })
   doc.text(`Phone: ${profile.phone}`, left + 35, y + 25)
@@ -113,7 +113,7 @@ export function createInvoicePdf(data: InvoicePdfData): Blob {
   doc.setFontSize(10)
   doc.setTextColor(ink)
   doc.text(customerNameLines, left + 5, y + 13)
-  doc.setFont('helvetica', 'normal')
+  doc.setFont('helvetica', 'bold')
   doc.setFontSize(8)
   doc.setTextColor(muted)
   const phoneY = y + 13 + customerNameLines.length * 4 + 2
@@ -149,7 +149,7 @@ export function createInvoicePdf(data: InvoicePdfData): Blob {
     // number), matching the on-screen invoice's "m · ₹100.00" sub-line.
     const subY = y + nameLines.length * 4
     const unitLabel = normalizeUnitLabel(item.unit, item.unit_type)
-    doc.setFont('helvetica', 'normal')
+    doc.setFont('helvetica', 'bold')
     doc.setFontSize(7)
     doc.setTextColor(muted)
     doc.text(`${unitLabel} · ${money(item.base_price)}`, left + 12, subY)
@@ -176,7 +176,7 @@ export function createInvoicePdf(data: InvoicePdfData): Blob {
   }
   rows.push(['Delivery', (data.shipping || 0) > 0 ? money(data.shipping) : 'FREE', ink, 9])
   rows.forEach(([label, value, color, fontSize]) => {
-    doc.setFont('helvetica', 'normal')
+    doc.setFont('helvetica', 'bold')
     doc.setFontSize(fontSize)
     doc.setTextColor(color === '#D4AF37' ? '#D4AF37' : '#18202a')
     doc.text(label, 142, y, { align: 'right' })

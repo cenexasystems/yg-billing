@@ -5,6 +5,7 @@ import {
   type BarcodeQueueItem,
   type LabelSizeConfig,
   renderBarcodeSvg,
+  stripRupee,
 } from '../../lib/barcode'
 
 interface BarcodeSheetPreviewModalProps {
@@ -147,7 +148,7 @@ export const BarcodeSheetPreviewModal: React.FC<BarcodeSheetPreviewModalProps> =
                     className="font-black text-black truncate max-w-full leading-none"
                     style={{ fontSize: `${Math.max(9, Math.round(cardHeightPx * 0.105))}px` }}
                   >
-                    {label.line3}
+                    {dualPrice ? stripRupee(label.line3) : label.line3}
                   </span>
                 )}
 
@@ -200,7 +201,7 @@ export const BarcodeSheetPreviewModal: React.FC<BarcodeSheetPreviewModalProps> =
                     className={`truncate max-w-full leading-none ${dualPrice ? 'font-bold text-black' : 'text-gray-500'}`}
                     style={{ fontSize: `${dualPrice ? Math.max(8, Math.round(cardHeightPx * 0.095)) : Math.max(6, Math.round(cardHeightPx * 0.065))}px` }}
                   >
-                    {label.line4}
+                    {dualPrice ? stripRupee(label.line4) : label.line4}
                   </span>
                 )}
               </div>
