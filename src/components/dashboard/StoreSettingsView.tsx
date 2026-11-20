@@ -271,54 +271,54 @@ export default function StoreSettingsView() {
 
       {/* Target Selector Tabs for Admin */}
       {role === 'admin' && (
-        <div className="flex gap-2 bg-[#FBFAF6] p-1.5 rounded-2xl border border-gray-200/80 shadow-xs max-w-fit">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-1.5 sm:gap-2 bg-[#FBFAF6] p-1.5 rounded-2xl border border-gray-200/80 shadow-xs sm:max-w-fit">
           <button
             type="button"
             onClick={() => { setTarget('pos1'); setMessage(null) }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+            className={`flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 min-w-0 min-h-[44px] px-2 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs leading-tight text-center sm:text-left font-black uppercase tracking-wide sm:tracking-wider transition-all cursor-pointer ${
               target === 'pos1'
                 ? 'bg-[#111111] text-white shadow-xs'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-white'
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-red-500" />
+            <span className="shrink-0 w-2 h-2 rounded-full bg-red-500" />
             POS 1 — Jute &amp; Wedding
           </button>
           <button
             type="button"
             onClick={() => { setTarget('pos2'); setMessage(null) }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+            className={`flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 min-w-0 min-h-[44px] px-2 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs leading-tight text-center sm:text-left font-black uppercase tracking-wide sm:tracking-wider transition-all cursor-pointer ${
               target === 'pos2'
                 ? 'bg-[#111111] text-white shadow-xs'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-white'
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-amber-500" />
+            <span className="shrink-0 w-2 h-2 rounded-full bg-amber-500" />
             POS 2 — Fireworks &amp; Crackers
           </button>
           <button
             type="button"
             onClick={() => { setTarget('pos3'); setMessage(null) }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+            className={`flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 min-w-0 min-h-[44px] px-2 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs leading-tight text-center sm:text-left font-black uppercase tracking-wide sm:tracking-wider transition-all cursor-pointer ${
               target === 'pos3'
                 ? 'bg-[#111111] text-white shadow-xs'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-white'
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-green-600" />
+            <span className="shrink-0 w-2 h-2 rounded-full bg-green-600" />
             Christmas POS
           </button>
           <button
             type="button"
             onClick={() => { setTarget('admin'); setMessage(null) }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+            className={`flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 min-w-0 min-h-[44px] px-2 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs leading-tight text-center sm:text-left font-black uppercase tracking-wide sm:tracking-wider transition-all cursor-pointer ${
               target === 'admin'
                 ? 'bg-[#111111] text-white shadow-xs'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-white'
             }`}
           >
-            <Shield size={13} />
-            Admin Portal (Global)
+            <Shield size={13} className="shrink-0" />
+            Admin Portal
           </button>
         </div>
       )}

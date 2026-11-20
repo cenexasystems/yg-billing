@@ -203,7 +203,8 @@ export default function Pos(props: PosProps = {}) {
   const [invoice, setInvoice] = useState<InvoiceSnap | null>(null)
   const [cashReceived, setCashReceived] = useState<string>('')
   const [mobilePanelView, setMobilePanelView] = useState<'catalogue' | 'bill'>('catalogue')
-  const [ordermode, setOrdermode] = useState<'online' | 'offline'>('offline')
+  // Every POS bill is an offline (counter) sale; the Online / Offline switch was removed
+  const ordermode = 'offline' as const
   const [variantPickerProduct, setVariantPickerProduct] = useState<Product | null>(null)
   const [availableVariants, setAvailableVariants] = useState<ProductVariant[]>([])
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null)
@@ -863,7 +864,6 @@ export default function Pos(props: PosProps = {}) {
     setRemarks('')
     setReferenceNumber('')
     setBillingDate('')
-    setOrdermode('offline')
     setMobilePanelView('catalogue')
     setPaymentType(defaultPaymentType)
     setSplitP1Type('cash')
@@ -1024,14 +1024,13 @@ export default function Pos(props: PosProps = {}) {
       if (splitP1Type === splitP2Type) { setError('Payment 1 and Payment 2 must use different methods for split payment'); return }
     }
     // Validate online mode availability
-    if (ordermode === 'online' && !isSupabaseConfigured) { setError('Cannot place online orders while offline'); return }
     setSaving(true); setError('')
     try {
       const labelFor = (t: 'cash' | 'qr' | 'card') => t === 'qr' ? 'QR' : t === 'card' ? 'Card' : 'Cash'
       const splitP1Amt = Number(splitP1Amount) || 0
       const splitP2Amt = Math.max(0, total - splitP1Amt)
       const splitModeLabel = `Split (${labelFor(splitP1Type)} ${formatCurrency(splitP1Amt)} + ${labelFor(splitP2Type)} ${formatCurrency(splitP2Amt)})`
-      const paymentMode = ordermode === 'online' ? 'online' : paymentType === 'split' ? splitModeLabel : paymentType
+      const paymentMode = paymentType === 'split' ? splitModeLabel : paymentType
       const created = await createOrderWithStock({
         customerName: customer.name.trim() || 'Walk-in Customer',
         phone: normalizedPhone,
@@ -1128,9 +1127,9 @@ export default function Pos(props: PosProps = {}) {
         customerName: customer.name.trim() || 'Walk-in Customer',
         phone: normalizedPhone,
         address: customer.address.trim() || 'POS Counter',
-        amountReceived: paymentType === 'cash' && ordermode !== 'online' ? cashReceivedNum : total,
-        balanceReturned: paymentType === 'cash' && ordermode !== 'online' ? balanceToReturn : 0,
-        paymentMode: ordermode === 'online' ? 'Online' : paymentType === 'split' ? splitModeLabel : paymentType === 'qr' ? 'QR' : paymentType === 'card' ? 'Card' : 'Cash',
+        amountReceived: paymentType === 'cash' ? cashReceivedNum : total,
+        balanceReturned: paymentType === 'cash' ? balanceToReturn : 0,
+        paymentMode: paymentType === 'split' ? splitModeLabel : paymentType === 'qr' ? 'QR' : paymentType === 'card' ? 'Card' : 'Cash',
         paymentMethod: paymentMode,
       }
       setInvoice(createdInvoice)
@@ -1467,22 +1466,8 @@ export default function Pos(props: PosProps = {}) {
           <p className="text-[11px] sm:text-[12px] text-gray-500 font-medium ml-3.5 mt-0.5 pr-2">Quick Invoice generator &amp; database synced checkout</p>
         </div>
 
-        {/* Online/Offline Toggle & Logout */}
+        {/* Logout */}
         <div className="flex gap-2 w-full min-[480px]:w-auto">
-          <div className="grid grid-cols-2 bg-white rounded-xl border border-gray-200 p-1 shadow-sm flex-1 min-[480px]:flex-none">
-            <button
-              onClick={() => setOrdermode('offline')}
-              className={`min-h-[38px] sm:min-h-[42px] px-3 sm:px-4 py-1.5 rounded-lg text-[11px] font-black tracking-wider uppercase transition-colors ${ordermode === 'offline' ? 'bg-[#7A1220] text-[#D4AF37] shadow-sm' : 'text-[#374151] hover:bg-[#F9FAFB]'}`}
-            >
-              Offline
-            </button>
-            <button
-              onClick={() => setOrdermode('online')}
-              className={`min-h-[38px] sm:min-h-[42px] px-3 sm:px-4 py-1.5 rounded-lg text-[11px] font-black tracking-wider uppercase transition-colors ${ordermode === 'online' ? 'bg-[#7A1220] text-[#D4AF37] shadow-sm' : 'text-[#374151] hover:bg-[#F9FAFB]'}`}
-            >
-              Online
-            </button>
-          </div>
           {!embeddedMode && (
             <>
               <button
@@ -1863,10 +1848,6 @@ export default function Pos(props: PosProps = {}) {
                 <Receipt size={16} className="text-[#D4AF37]" />
                 Current Order
               </h3>
-              <span className={`px-2 py-1 rounded-full border text-[9px] font-black tracking-wider uppercase flex items-center gap-1.5 ${ordermode === 'offline' ? 'border-[#7A1220] text-[#7A1220] bg-gray-100' : 'border-[#D4AF37] text-[#B48811] bg-amber-50'}`}>
-                <div className={`w-1.5 h-1.5 rounded-full ${ordermode === 'offline' ? 'bg-[#7A1220]' : 'bg-[#D4AF37]'}`}></div>
-                {ordermode} (POS)
-              </span>
             </div>
 
             {/* Content body */}
@@ -1874,10 +1855,6 @@ export default function Pos(props: PosProps = {}) {
 
               {/* Info Table */}
               <div className="border border-gray-200 rounded-xl overflow-hidden text-[11px] font-bold">
-                <div className="flex justify-between px-3 py-2 border-b border-gray-200 bg-[#FAFAFA]">
-                  <span className="text-[#374151] uppercase">Source</span>
-                  <span className="text-[#7A1220] border border-gray-300 bg-gray-100 px-1.5 rounded uppercase">{ordermode.toUpperCase()}</span>
-                </div>
                 <div className="grid grid-cols-2 gap-0 border-b border-gray-200">
                   <div className="p-2 border-r border-gray-200">
                     <span className="text-[10px] text-[#374151] uppercase block mb-0.5">Customer Name</span>
@@ -2057,7 +2034,7 @@ export default function Pos(props: PosProps = {}) {
               </div>
 
               {/* Split Payment Sub-UI */}
-              {paymentType === 'split' && ordermode !== 'online' && (
+              {paymentType === 'split' && (
                 <div className="border-2 border-[#D4AF37]/60 rounded-xl p-2.5 bg-[#FFFDF4] space-y-2.5 w-full min-w-0 overflow-hidden box-border">
                   <div className="flex items-center justify-between gap-1">
                     <p className="text-[10px] font-black text-[#7A1220] uppercase tracking-wider truncate">
@@ -2134,7 +2111,7 @@ export default function Pos(props: PosProps = {}) {
               )}
 
               {/* Amount Received: cash only (QR / card are paid exactly; split has its own amounts) */}
-              {ordermode !== 'online' && paymentType === 'cash' && (
+              {paymentType === 'cash' && (
               <div>
                 <div className="border border-gray-200 rounded-xl p-2.5 bg-white">
                   <label className="block text-[10px] font-black text-[#374151] tracking-wider uppercase mb-0.5">
