@@ -141,9 +141,15 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
     dualPrice
       ? priceLines(product?.wholesale_price, price).retail
       : (settings.showDiscount ? 'Discount: 0%' : `Price: ₹${price}`)
-  // Christmas POS: Line 4 carries the Wholesale price on its own line. Other counters keep whatever was typed.
-  const autoLine4 = (price: number, product?: ProductOption | null, typed = '') =>
-    dualPrice ? priceLines(product?.wholesale_price, price).wholesale : typed
+  // Christmas POS: Line 4 carries the Wholesale price on its own line. When the product has no
+  // wholesale price saved, a WP the user typed is kept rather than replaced with "₹--".
+  // Other counters keep whatever was typed.
+  const autoLine4 = (price: number, product?: ProductOption | null, typed = '') => {
+    if (!dualPrice) return typed
+    const hasSaved = product?.wholesale_price != null && Number(product.wholesale_price) > 0
+    const typedValue = /\d/.test(typed) ? typed : ''
+    return hasSaved || !typedValue ? priceLines(product?.wholesale_price, price).wholesale : typedValue
+  }
   const isSmall = currentSizeConfig.heightMm <= 25
   const isLarge = currentSizeConfig.heightMm >= 40
 
@@ -158,7 +164,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
     setLine1(prod.name)
     setLine2(prod.category || '')
     setLine3(autoLine3(prod.price, prod))
-    if (dualPrice) setLine4(autoLine4(prod.price, prod))
+    if (dualPrice) setLine4(autoLine4(prod.price, prod, line4))
 
     // Fetch variants if applicable
     if (prod.has_variants) {
@@ -173,7 +179,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
           setLine2(`Size: ${chosen.variantName}`)
           if (chosen.price) {
             setLine3(autoLine3(chosen.price, prod))
-            if (dualPrice) setLine4(autoLine4(chosen.price, prod))
+            if (dualPrice) setLine4(autoLine4(chosen.price, prod, line4))
           }
         }
       } catch (err) {
@@ -257,7 +263,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
     setLine2(`Size: ${v.variantName}`)
     if (v.price) {
       setLine3(autoLine3(v.price, selectedProduct))
-      if (dualPrice) setLine4(autoLine4(v.price, selectedProduct))
+      if (dualPrice) setLine4(autoLine4(v.price, selectedProduct, line4))
     }
   }
 
@@ -454,11 +460,12 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
           <div class="label-sticker">
             ${dualPrice ? `<div class="header">${esc(item.header || christmasLabelTitle())}</div>` : settings.showCompanyName ? `<div class="header">${item.header || BRAND_EN}</div>` : ''}
             ${settings.showItemName && !dualPrice ? `<div class="prod-title">${fullTitle}</div>` : ''}
+            ${dualPrice && line3 ? `<div class="extra-line price-line rp">${line3}</div>` : ''}
             <div class="barcode-box">
               ${svgMarkup}
             </div>
-            ${line3 ? `<div class="extra-line${dualPrice ? ' price-line' : ''}">${line3}</div>` : ''}
-            ${line4 ? `<div class="extra-line${dualPrice ? ' price-line' : ''}">${line4}</div>` : ''}
+            ${line3 && !dualPrice ? `<div class="extra-line">${line3}</div>` : ''}
+            ${line4 ? `<div class="extra-line${dualPrice ? ' price-line wp' : ''}">${line4}</div>` : ''}
             ${dualPrice ? '' : `<div class="footer">
               <span>${item.line2 ? `<span class="tag">${esc(item.line2)}</span>` : `<span class="tag">${BRAND_EN}</span>`}</span>
               ${settings.showSalePrice ? `<span class="price">₹${item.price}</span>` : ''}
@@ -599,6 +606,13 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
               max-width: 98%;
               line-height: 1.1;
               flex-shrink: 0;
+            }
+            .price-line.rp {
+              font-size: ${isSmall ? '7.5pt' : isLarge ? '10pt' : '8.5pt'};
+              font-weight: 900;
+            }
+            .price-line.wp {
+              font-weight: 700;
             }
             .price-line {
               width: 100%;
@@ -1085,6 +1099,16 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
                             </span>
                           )}
 
+                          {/* Christmas POS: retail price sits above the barcode */}
+                          {dualPrice && (
+                            <span
+                              className="font-black text-black truncate max-w-full leading-none"
+                              style={{ fontSize: `${Math.max(9.5, Math.round(previewHeightPx * 0.105))}px` }}
+                            >
+                              {line3 || priceLines(selectedProduct?.wholesale_price, selectedProduct?.price || 0).retail}
+                            </span>
+                          )}
+
                           {/* Barcode Graphic Box (takes ~46% height) */}
                           <div
                             className="w-full flex items-center justify-center overflow-hidden my-0.5"
@@ -1122,7 +1146,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
                           )}
 
                           {/* Price */}
-                          {(settings.showSalePrice || dualPrice) && (
+                          {settings.showSalePrice && !dualPrice && (
                             <span
                               className="font-black text-black truncate max-w-full leading-none"
                               style={{ fontSize: `${Math.max(8.5, Math.round(previewHeightPx * 0.095))}px` }}
@@ -1134,7 +1158,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
                           {/* Extra line */}
                           {line4 && (
                             <span
-                              className={`truncate max-w-full leading-none ${dualPrice ? 'font-black text-black' : 'text-gray-500'}`}
+                              className={`truncate max-w-full leading-none ${dualPrice ? 'font-bold text-black' : 'text-gray-500'}`}
                               style={{ fontSize: `${dualPrice ? Math.max(8.5, Math.round(previewHeightPx * 0.095)) : Math.max(6.5, Math.round(previewHeightPx * 0.065))}px` }}
                             >
                               {line4}

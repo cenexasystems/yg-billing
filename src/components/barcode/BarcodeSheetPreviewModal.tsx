@@ -141,6 +141,16 @@ export const BarcodeSheetPreviewModal: React.FC<BarcodeSheetPreviewModalProps> =
                     </span>
                   )}
 
+                {/* Christmas POS: retail price sits above the barcode */}
+                {dualPrice && label.line3 && (
+                  <span
+                    className="font-black text-black truncate max-w-full leading-none"
+                    style={{ fontSize: `${Math.max(9, Math.round(cardHeightPx * 0.105))}px` }}
+                  >
+                    {label.line3}
+                  </span>
+                )}
+
                 {/* Barcode Graphic Box (occupies ~48% height) */}
                 <div
                   className="w-full flex items-center justify-center overflow-hidden my-0.5"
@@ -177,7 +187,7 @@ export const BarcodeSheetPreviewModal: React.FC<BarcodeSheetPreviewModalProps> =
                     {label.line2}
                   </span>
                 )}
-                {label.line3 && (
+                {label.line3 && !dualPrice && (
                   <span
                     className="font-black text-[#7A1220] truncate max-w-full leading-none"
                     style={{ fontSize: `${Math.max(8, Math.round(cardHeightPx * 0.095))}px` }}
@@ -187,7 +197,7 @@ export const BarcodeSheetPreviewModal: React.FC<BarcodeSheetPreviewModalProps> =
                 )}
                 {label.line4 && (
                   <span
-                    className={`truncate max-w-full leading-none ${dualPrice ? 'font-black text-[#7A1220]' : 'text-gray-500'}`}
+                    className={`truncate max-w-full leading-none ${dualPrice ? 'font-bold text-black' : 'text-gray-500'}`}
                     style={{ fontSize: `${dualPrice ? Math.max(8, Math.round(cardHeightPx * 0.095)) : Math.max(6, Math.round(cardHeightPx * 0.065))}px` }}
                   >
                     {label.line4}

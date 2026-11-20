@@ -14,6 +14,8 @@ interface ProductOptionType {
   stock_quantity?: number
   category?: string
   has_variants?: boolean
+  /** Christmas POS only */
+  wholesale_price?: number
 }
 
 export default function BarcodeHub() {
@@ -39,6 +41,7 @@ export default function BarcodeHub() {
             stock_quantity: p.stockQuantity ?? p.stock ?? 0,
             category: p.category,
             has_variants: p.hasVariants,
+            wholesale_price: p.wholesalePrice,
           },
         ])
     ).values()

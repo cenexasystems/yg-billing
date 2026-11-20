@@ -93,15 +93,12 @@ export const BarcodeLabel: React.FC<BarcodeLabelProps> = ({
         )}
         {dualPrice && (
           <div className="flex flex-col items-center leading-tight max-w-full" style={{ marginTop: '0.4mm' }}>
-            {([priceLines(wholesalePrice, price).retail, priceLines(wholesalePrice, price).wholesale]).map((line) => (
-              <div
-                key={line}
-                className="font-black text-black whitespace-nowrap max-w-full"
-                style={{ fontSize: isSmall ? '6.5px' : isLarge ? '10px' : '8px' }}
-              >
-                {line}
-              </div>
-            ))}
+            <div
+              className="font-black text-black whitespace-nowrap max-w-full"
+              style={{ fontSize: isSmall ? '7.5px' : isLarge ? '11px' : '9px' }}
+            >
+              {priceLines(wholesalePrice, price).retail}
+            </div>
           </div>
         )}
       </div>
@@ -113,6 +110,16 @@ export const BarcodeLabel: React.FC<BarcodeLabelProps> = ({
       >
         <svg ref={svgRef} className="max-w-[98%] max-h-full h-auto" />
       </div>
+
+      {/* Christmas POS: wholesale price sits below the barcode */}
+      {dualPrice && (
+        <div
+          className="font-bold text-black whitespace-nowrap max-w-full leading-none shrink-0"
+          style={{ fontSize: isSmall ? '6.5px' : isLarge ? '10px' : '8px' }}
+        >
+          {priceLines(wholesalePrice, price).wholesale}
+        </div>
+      )}
 
       {/* Pricing Footer */}
       {!dualPrice && (

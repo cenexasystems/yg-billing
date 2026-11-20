@@ -159,12 +159,12 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
       <div class="sticker">
         <div class="header">
           <div class="brand">${christmasLabelTitle()}</div>
-          <div class="price-row">${priceLines(wholesalePrice, price).retail}</div>
-          <div class="price-row">${priceLines(wholesalePrice, price).wholesale}</div>
+          <div class="price-row rp">${priceLines(wholesalePrice, price).retail}</div>
         </div>
         <div class="barcode-box">
           ${svgMarkup}
         </div>
+        <div class="price-row wp">${priceLines(wholesalePrice, price).wholesale}</div>
       </div>
     ` : `
       <div class="sticker">
@@ -316,6 +316,13 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
               margin-top: 0.3mm;
               color: #111;
               line-height: 1.1;
+            }
+            .price-row.rp {
+              font-size: ${isSmall ? '7.5pt' : isLarge ? '11pt' : '9pt'};
+              font-weight: 900;
+            }
+            .price-row.wp {
+              font-weight: 700;
             }
             .price-row {
               font-size: ${isSmall ? '6.5pt' : isLarge ? '10pt' : '8pt'};
