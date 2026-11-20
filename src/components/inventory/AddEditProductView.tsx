@@ -50,6 +50,9 @@ export const AddEditProductView: React.FC<{
   const [nameTa, setNameTa] = useState('')
   const [categoryId, setCategoryId] = useState<number | ''>('')
   const [price, setPrice] = useState<string>('')
+  // Christmas POS (POS 3) only: wholesale price, stored on the product row
+  const [wholesalePrice, setWholesalePrice] = useState<string>('')
+  const isChristmas = branch === 'pos3'
   const [purchasePrice, setPurchasePrice] = useState<string>('')
   const [stockQuantity, setStockQuantity] = useState<string>('0')
   const [lowStockAlert, setLowStockAlert] = useState<string>('5')
@@ -85,6 +88,7 @@ export const AddEditProductView: React.FC<{
     setCategoryId('')
     setPrice('')
     setPurchasePrice('')
+    setWholesalePrice('')
     setStockQuantity('0')
     setLowStockAlert('5')
     setBarcode('')
@@ -114,6 +118,7 @@ export const AddEditProductView: React.FC<{
     setCategoryId(matchedCatId)
 
     setPrice(String(p.price || ''))
+    setWholesalePrice(p.wholesalePrice != null ? String(p.wholesalePrice) : '')
     setPurchasePrice(String(p.purchasePrice || ''))
     setStockQuantity(String(p.stockQuantity ?? p.stock ?? 0))
     setLowStockAlert(p.lowStockAlert ? String(p.lowStockAlert) : '5')
@@ -304,6 +309,9 @@ export const AddEditProductView: React.FC<{
     const firstVariant = validVariants[0]
     const priceNum = hasVariants && firstVariant ? (Number(firstVariant.price) || 0) : (parseFloat(price) || 0)
     const costNum = hasVariants && firstVariant ? (Number(firstVariant.costPrice) || 0) : (parseFloat(purchasePrice) || 0)
+    const wholesalePatch = isChristmas
+      ? { wholesale_price: wholesalePrice.trim() === '' ? null : Math.max(0, Number(wholesalePrice) || 0) }
+      : {}
 
     if (!hasVariants && priceNum <= 0) {
       setStatusMessage({ type: 'error', text: 'Price must be greater than 0' })
@@ -363,6 +371,7 @@ export const AddEditProductView: React.FC<{
               price: priceNum,
               offer_price: priceNum,
               purchase_price: costNum,
+              ...wholesalePatch,
               low_stock_alert: alertThreshold,
               barcode: barcode.trim() || null,
               description: description.trim() || '',
@@ -508,6 +517,7 @@ export const AddEditProductView: React.FC<{
               price: priceNum,
               offer_price: priceNum,
               purchase_price: costNum,
+              ...wholesalePatch,
               low_stock_alert: alertThreshold,
               barcode: null,
               description: description.trim() || '',
@@ -542,6 +552,7 @@ export const AddEditProductView: React.FC<{
               price: priceNum,
               offer_price: priceNum,
               purchase_price: costNum,
+              ...wholesalePatch,
               low_stock_alert: alertThreshold,
               barcode: barcode.trim() || null,
               description: description.trim() || '',
@@ -609,6 +620,7 @@ export const AddEditProductView: React.FC<{
               price: priceNum,
               offer_price: priceNum,
               purchase_price: costNum,
+              ...wholesalePatch,
               low_stock_alert: alertThreshold,
               barcode: null,
               description: description.trim() || '',
@@ -1028,12 +1040,32 @@ export const AddEditProductView: React.FC<{
               </div>
             </div>
 
+            {/* Christmas POS: products with sizes keep one wholesale price for the whole product */}
+            {hasVariants && isChristmas && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 bg-white border border-gray-200 rounded-xl items-start">
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1.5 h-4 flex items-center">
+                    Wholesale Price (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={wholesalePrice}
+                    onChange={(e) => setWholesalePrice(e.target.value)}
+                    className="w-full h-10 px-3.5 rounded-xl border border-gray-300 bg-white text-xs font-bold text-gray-900 outline-none focus:border-[#7A1220]"
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Base Pricing & Received Stock (only if no variants) */}
             {!hasVariants && (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 bg-white border border-gray-200 rounded-xl items-start">
                 <div>
                   <label className="block text-[11px] font-bold text-gray-700 mb-1.5 h-4 flex items-center">
-                    Selling Price (₹) <span className="text-red-500 ml-0.5">*</span>
+                    {isChristmas ? 'Retail Price (₹)' : 'Selling Price (₹)'} <span className="text-red-500 ml-0.5">*</span>
                   </label>
                   <input
                     type="number"
@@ -1047,20 +1079,39 @@ export const AddEditProductView: React.FC<{
                   />
                 </div>
 
+                {isChristmas && (
                 <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1.5 h-4 flex items-center">
-                    Purchase / Cost Price (₹)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={purchasePrice}
-                    onChange={(e) => setPurchasePrice(e.target.value)}
-                    className="w-full h-10 px-3.5 rounded-xl border border-gray-300 bg-white text-xs font-bold text-gray-900 outline-none focus:border-[#7A1220]"
-                  />
-                </div>
+                    <label className="block text-[11px] font-bold text-gray-700 mb-1.5 h-4 flex items-center">
+                      Wholesale Price (₹)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={wholesalePrice}
+                      onChange={(e) => setWholesalePrice(e.target.value)}
+                      className="w-full h-10 px-3.5 rounded-xl border border-gray-300 bg-white text-xs font-bold text-gray-900 outline-none focus:border-[#7A1220]"
+                    />
+                  </div>
+                )}
+                {/* POS 3 shows Wholesale Price in this slot instead of the cost price */}
+                {!isChristmas && (
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-700 mb-1.5 h-4 flex items-center">
+                      Purchase / Cost Price (₹)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={purchasePrice}
+                      onChange={(e) => setPurchasePrice(e.target.value)}
+                      className="w-full h-10 px-3.5 rounded-xl border border-gray-300 bg-white text-xs font-bold text-gray-900 outline-none focus:border-[#7A1220]"
+                    />
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-[11px] font-bold text-emerald-800 mb-1.5 h-4 flex items-center gap-1">
@@ -1291,7 +1342,7 @@ export const AddEditProductView: React.FC<{
 
                         <div className="sm:col-span-2">
                           <label className="block text-[10px] font-bold text-gray-600 mb-0.5">
-                            Price (₹)
+                            {isChristmas ? 'Retail (₹)' : 'Price (₹)'}
                           </label>
                           <input
                             type="number"
@@ -1305,6 +1356,7 @@ export const AddEditProductView: React.FC<{
                           />
                         </div>
 
+                        {!isChristmas && (
                         <div className="sm:col-span-2">
                           <label className="block text-[10px] font-bold text-gray-600 mb-0.5">
                             Cost (₹)
@@ -1319,6 +1371,7 @@ export const AddEditProductView: React.FC<{
                             className="w-full h-8 px-2.5 rounded-lg border border-gray-300 bg-white text-xs font-bold text-gray-900 outline-none focus:border-[#7A1220]"
                           />
                         </div>
+                        )}
 
                         <div className="sm:col-span-2">
                           <label className="block text-[10px] font-bold text-emerald-800 mb-0.5">
