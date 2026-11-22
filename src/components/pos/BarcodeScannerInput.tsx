@@ -16,6 +16,8 @@ export interface ScannedItemPayload {
   variant_name?: string
   price: number
   offer_price?: number
+  /** Christmas POS only: used when the bill is at Wholesale prices */
+  wholesale_price?: number
   stock: number
   barcode: string
   unit?: string
@@ -162,7 +164,9 @@ export const BarcodeScannerInput: React.FC<BarcodeScannerInputProps> = ({
         name_ta: prod.name_ta,
         variant_name: varnt?.variant_name,
         price: price,
-        offer_price: !varnt && prod.offer_price ? Number(prod.offer_price) : undefined,
+        // POS 3 bills at the retail price only (a stale offer price must never change the rate)
+        offer_price: !varnt && branch !== 'pos3' && prod.offer_price ? Number(prod.offer_price) : undefined,
+        wholesale_price: branch === 'pos3' && !varnt && Number(prod.wholesale_price) > 0 ? Number(prod.wholesale_price) : undefined,
         stock: effectiveStock,
         barcode: clean,
         image_url: prod.image_url,

@@ -259,7 +259,8 @@ const mapDbProduct = (input: unknown, categoriesById: Record<string, string> = {
     categoryId,
     remedy,
     price: toNumber(p.price, 0),
-    offerPrice: p.offer_price != null ? toNumber(p.offer_price, 0) : null,
+    // Christmas POS (POS 3) has no offer prices: it bills at the retail (or wholesale) price only
+    offerPrice: p.branch === 'pos3' || p.offer_price == null ? null : toNumber(p.offer_price, 0),
     unitType: normalizeUnitType(p.unit_type, 'unit'),
     unitLabel: readString(p.unit_label, 'piece'),
     baseQuantity: toNumber(p.base_quantity, 1),

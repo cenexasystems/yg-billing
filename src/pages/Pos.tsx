@@ -600,6 +600,7 @@ export default function Pos(props: PosProps = {}) {
           image: scanned.image_url || '/product-placeholder.svg',
           imageUrl: scanned.image_url || '/product-placeholder.svg',
           barcode: scanned.barcode,
+          wholesalePrice: scanned.wholesale_price,
         }, 1)
         item.variantId = scanned.variant_id || undefined
         item.variantName = scanned.variant_name || undefined
@@ -645,7 +646,9 @@ export default function Pos(props: PosProps = {}) {
         name_ta: prod.name_ta,
         variant_name: varnt?.variant_name,
         price: price,
-        offer_price: !varnt && prod.offer_price ? Number(prod.offer_price) : undefined,
+        // POS 3 bills at the retail price only (a stale offer price must never change the rate)
+        offer_price: !varnt && branch !== 'pos3' && prod.offer_price ? Number(prod.offer_price) : undefined,
+        wholesale_price: branch === 'pos3' && !varnt && Number(prod.wholesale_price) > 0 ? Number(prod.wholesale_price) : undefined,
         stock: effectiveStock,
         barcode: clean,
         image_url: prod.image_url,
@@ -1708,6 +1711,13 @@ export default function Pos(props: PosProps = {}) {
                                 {item.variantName}
                               </span>
                             )}
+                            {branch === 'pos3' && item.category !== 'Unregistered' && (
+                              <span className="mt-1 flex items-center gap-1.5 text-[11px] font-bold text-gray-500 tabular-nums">
+                                <span className={(item.priceMode ?? 'retail') === 'retail' ? 'text-[#111111] font-black' : ''}>RP {formatCurrency(Number(item.price) || 0)}</span>
+                                <span className="text-gray-300">|</span>
+                                <span className={item.priceMode === 'wholesale' ? 'text-[#111111] font-black' : ''}>WP {Number(item.wholesalePrice) > 0 ? formatCurrency(Number(item.wholesalePrice)) : '--'}</span>
+                              </span>
+                            )}
                           </div>
                         )}
                         {/* Clickable Unit Price Pill Badge */}
@@ -1785,8 +1795,15 @@ export default function Pos(props: PosProps = {}) {
                           className="w-full px-3 py-2 bg-[#FAFAFA] border border-gray-200 rounded-lg text-[13px] font-bold text-[#111111] focus:outline-none focus:border-[#D4AF37]"
                         />
                       ) : (
-                        <div className="px-3 py-2 w-full truncate border border-transparent flex items-center gap-2">
+                        <div className="px-3 py-2 w-full min-w-0 border border-transparent flex flex-col justify-center">
                               <span className="text-[13px] font-bold text-[#111111] truncate">{getVariantBaseName(item)} {item.variantName ? `- ${item.variantName}` : ''}</span>
+                              {branch === 'pos3' && item.category !== 'Unregistered' && (
+                              <span className="flex items-center gap-1.5 text-[10.5px] font-bold text-gray-500 tabular-nums">
+                                <span className={(item.priceMode ?? 'retail') === 'retail' ? 'text-[#111111] font-black' : ''}>RP {formatCurrency(Number(item.price) || 0)}</span>
+                                <span className="text-gray-300">|</span>
+                                <span className={item.priceMode === 'wholesale' ? 'text-[#111111] font-black' : ''}>WP {Number(item.wholesalePrice) > 0 ? formatCurrency(Number(item.wholesalePrice)) : '--'}</span>
+                              </span>
+                            )}
                         </div>
                       )}
                       {item.source !== 'manual' && (

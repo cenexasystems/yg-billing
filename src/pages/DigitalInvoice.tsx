@@ -355,10 +355,8 @@ export default function DigitalInvoice() {
       branch: invoice.branch,
     })
 
-    const invoiceUrl = window.location.href
-    const linkSection = pdfUrl
-      ? `\n\n📄 View Invoice: ${invoiceUrl}\n📥 Download PDF: ${pdfUrl}`
-      : `\n\n📄 View Invoice: ${invoiceUrl}`
+    // The message already carries the invoice link; only add the PDF download when there is one
+    const linkSection = pdfUrl ? `\n\n📥 Download PDF: ${pdfUrl}` : ''
 
     // Fireworks / Christmas layouts send no extra links (Christmas has its PDF link in the message)
     const whatsappMessage = usesFireworksLayout(invoice.branch) ? message : `${message}${linkSection}`

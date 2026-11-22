@@ -17,6 +17,8 @@ export interface BarcodeRegistryRecord {
     name_ta?: string
     price: number
     offer_price?: number
+    /** Christmas POS only */
+    wholesale_price?: number | null
     image_url?: string
     category?: string
   }
@@ -90,7 +92,7 @@ export const barcodeService = {
       .from('barcode_registry')
       .select(`
         id, barcode_value, entity_type, product_id, variant_id, is_active, created_by_name, created_at, updated_at,
-        product:products (id, name, name_ta, price, offer_price, image_url, category),
+        product:products (id, name, name_ta, price, offer_price, wholesale_price, image_url, category),
         variant:product_variants (id, variant_name, price, stock, sku)
       `)
       .ilike('barcode_value', cleanValue)
@@ -116,7 +118,7 @@ export const barcodeService = {
     // 2. Fallback: Check product_variants.barcode (case-insensitive)
     let variantQuery = supabase
       .from('product_variants')
-      .select('id, product_id, variant_name, price, stock, sku, barcode, product:products (id, name, name_ta, price, offer_price, image_url, category)')
+      .select('id, product_id, variant_name, price, stock, sku, barcode, product:products (id, name, name_ta, price, offer_price, wholesale_price, image_url, category)')
       .ilike('barcode', cleanValue)
     variantQuery = variantQuery.eq('branch', branch)
     const { data: varData } = await variantQuery.maybeSingle()
@@ -147,7 +149,7 @@ export const barcodeService = {
     // 3. Fallback: Check products.barcode (case-insensitive)
     let productQuery = supabase
       .from('products')
-      .select('id, name, name_ta, price, offer_price, image_url, category, barcode, stock_quantity')
+      .select('id, name, name_ta, price, offer_price, wholesale_price, image_url, category, barcode, stock_quantity')
       .ilike('barcode', cleanValue)
     productQuery = productQuery.eq('branch', branch)
     const { data: prodData } = await productQuery.maybeSingle()
@@ -179,7 +181,7 @@ export const barcodeService = {
       .from('barcode_registry')
       .select(`
         id, barcode_value, entity_type, product_id, variant_id, is_active, created_by_name, created_at, updated_at,
-        product:products (id, name, name_ta, price, offer_price, image_url, category),
+        product:products (id, name, name_ta, price, offer_price, wholesale_price, image_url, category),
         variant:product_variants (id, variant_name, price, stock, sku)
       `, { count: 'exact' })
       .order('created_at', { ascending: false })

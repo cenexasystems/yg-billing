@@ -68,11 +68,7 @@ export const buildProfessionalWhatsAppMessage = (input: BuildWhatsAppMessageInpu
     ? input.items.map(item => `• ${item.name} (x${item.qty}) - ₹ ${Number(item.lineTotal || 0).toFixed(2)}`).join('\n')
     : ''
 
-  // Instagram URLs (same handles for both branches)
-  const profile = getBranchProfile(input.branch)
-  const instagramSection = profile.instagramUrls
-  const instagramText = instagramSection ? `\n📷 *Follow us on Instagram:*\n${instagramSection}` : ''
-
+  // POS 1 bill: the invoice only - no website, Instagram, Google review or other company links
   return `✨ *${BRAND_EN}* ✨
 🛍️ *Official Purchase Invoice & Receipt* 🛍️
 
@@ -84,13 +80,8 @@ Thank you for shopping at ${BRAND_EN}! We truly appreciate your patronage.
 📌 *Invoice No:* #${formattedNo}
 ${input.invoiceDate ? `📅 *Date:* ${new Date(input.invoiceDate).toLocaleDateString('en-IN')}\n` : ''}${input.paymentMode ? `💳 *Payment Mode:* ${input.paymentMode}\n` : ''}${(input.couponDiscount || 0) > 0 ? `🎟️ *${couponLabel(input.couponCode, input.couponPercentage)}:* -₹ ${Number(input.couponDiscount || 0).toFixed(2)}
 ` : ''}${input.total !== undefined ? `💰 *Total Amount:* ₹ ${Number(input.total || 0).toFixed(2)}\n` : ''}
-${itemsText ? `📦 *ITEMS ORDERED:*\n${itemsText}\n\n` : ''}📄 *View & Download Digital Invoice / PDF:*
+${itemsText ? `📦 *ITEMS ORDERED:*\n${itemsText}\n\n` : ''}📄 *View & Download Invoice / PDF:*
 👉 ${invoiceUrl}
-
-🌐 *Visit Our Official Website:*
-👉 ${BRAND_WEBSITE}
-
-📞 *Shop Contact:* ${profile.phone}${instagramText}${profile.googleReviewUrl ? `\n\n⭐ *Rate us on Google:*\n${profile.googleReviewUrl}` : ''}
 
 Thank you, and visit us again! ✨`
 }
