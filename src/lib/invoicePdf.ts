@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
 import { BRAND_EN, BRAND_GPAY_NUMBER } from './brand'
 import { couponLabel, formatCurrency, formatQuantityValue, normalizeStructuredOrderItem, normalizeUnitLabel, formatInvoiceNo } from './retail'
-import { LOGO_BASE64_POS1, LOGO_BASE64_POS2, LOGO_BASE64_POS3, LOGO_BASE64_POS3_ASPECT } from './logoBase64'
+import { LOGO_PDF_POS1, LOGO_PDF_POS2, LOGO_PDF_POS3, LOGO_PDF_POS3_RATIO } from './logoPdf'
 import { usesFireworksLayout, type PosBranch } from '../store/store'
 import { getBranchProfile } from './branchProfile'
 import { formatPhoneForDisplay } from './phone'
@@ -76,10 +76,10 @@ export function createInvoicePdf(data: InvoicePdfData): Blob {
   try {
     if (data.branch === 'pos3') {
       // wide logo: fit it inside the same 30 mm box, centred, without stretching
-      const logoH = 30 / LOGO_BASE64_POS3_ASPECT
-      doc.addImage(LOGO_BASE64_POS3, 'PNG', left, y + (30 - logoH) / 2, 30, logoH)
+      const logoH = 30 * LOGO_PDF_POS3_RATIO
+      doc.addImage(LOGO_PDF_POS3, 'JPEG', left, y + (30 - logoH) / 2, 30, logoH)
     } else {
-      doc.addImage(data.branch === 'pos2' ? LOGO_BASE64_POS2 : LOGO_BASE64_POS1, 'PNG', left, y, 30, 30)
+      doc.addImage(data.branch === 'pos2' ? LOGO_PDF_POS2 : LOGO_PDF_POS1, 'JPEG', left, y, 30, 30)
     }
   } catch {
     doc.setTextColor(primaryColor)
@@ -255,16 +255,17 @@ export async function invoicePdfFileFromElement(
     const pageWidth = 210
     const pageHeight = 297
     const imageHeight = (canvas.height * pageWidth) / canvas.width
-    const image = canvas.toDataURL('image/png')
+    // JPEG keeps a full-page invoice image a fraction of the size of PNG
+    const image = canvas.toDataURL('image/jpeg', 0.85)
 
     if (imageHeight <= pageHeight + 5) {
-      doc.addImage(image, 'PNG', 0, 0, pageWidth, pageHeight, undefined, 'FAST')
+      doc.addImage(image, 'JPEG', 0, 0, pageWidth, pageHeight, undefined, 'FAST')
     } else {
       let offset = 0
       let page = 0
       while (offset < imageHeight) {
         if (page > 0) doc.addPage()
-        doc.addImage(image, 'PNG', 0, -offset, pageWidth, imageHeight, undefined, 'FAST')
+        doc.addImage(image, 'JPEG', 0, -offset, pageWidth, imageHeight, undefined, 'FAST')
         offset += pageHeight
         page += 1
       }
