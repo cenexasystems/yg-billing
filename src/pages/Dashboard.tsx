@@ -1438,10 +1438,10 @@ ${pdfUrl}`
       if (tabRef.current === 'billing') { staleRef.current = true; return }
       debouncedLoadRef.current?.()
     }
-    // Only this shop's changes (the all-shops admin view still hears everything).
+    // Only this shop's changes.
     // A bill's item rows always come with a change to the bill itself, so they
     // need no listener of their own.
-    const only = branch && branch !== 'all' ? { filter: `branch=eq.${branch}` } : {}
+    const only = branch ? { filter: `branch=eq.${branch}` } : {}
     const ch = supabase.channel('dashboard-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', ...only }, handleChange)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products', ...only }, handleChange)
