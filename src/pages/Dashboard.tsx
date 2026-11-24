@@ -1413,24 +1413,43 @@ ${pdfUrl}`
   // Keep a stable ref to the debounced loader so realtime events don't
   // trigger a full data reload more than once every 4 seconds.
   const debouncedLoadRef = useRef<(() => void) | null>(null)
+  const tabRef = useRef(tab)
+  const staleRef = useRef(false)
   useEffect(() => {
-    debouncedLoadRef.current = debounce(() => void loadData(), 350)
+    tabRef.current = tab
+    if (tab !== 'billing' && staleRef.current) {
+      staleRef.current = false
+      debouncedLoadRef.current?.()
+    }
+  }, [tab])
+  useEffect(() => {
+    // Each reload downloads all of this shop's bills, so bundle bursts of changes
+    // (one sale = bill + items + several stock updates) into a single reload.
+    debouncedLoadRef.current = debounce(() => void loadData(), 4000)
   }, [loadData])
 
   useEffect(() => {
     if (!isAdmin) return
     void loadData()
     if (!isSupabaseConfigured) return
-    const handleChange = () => debouncedLoadRef.current?.()
+    // While billing, nothing on screen uses this data: just note that it changed
+    // and reload once when a page that shows it is opened.
+    const handleChange = () => {
+      if (tabRef.current === 'billing') { staleRef.current = true; return }
+      debouncedLoadRef.current?.()
+    }
+    // Only this shop's changes (the all-shops admin view still hears everything).
+    // A bill's item rows always come with a change to the bill itself, so they
+    // need no listener of their own.
+    const only = branch && branch !== 'all' ? { filter: `branch=eq.${branch}` } : {}
     const ch = supabase.channel('dashboard-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, handleChange)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, handleChange)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, handleChange)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, handleChange)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'coupons' }, handleChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', ...only }, handleChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products', ...only }, handleChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses', ...only }, handleChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'coupons', ...only }, handleChange)
       .subscribe()
     return () => { void supabase.removeChannel(ch) }
-  }, [isAdmin, loadData])
+  }, [isAdmin, loadData, branch])
 
   useEffect(() => {
     if (tab === 'users') void loadUsers()

@@ -130,27 +130,32 @@ export function useLowStockMonitor(enabled: boolean = true, role?: string | null
     isCheckingRef.current = false
     void checkStockLevels(true)
 
-    // 15-second interval continuous stock monitor
+    // Background re-check every 5 minutes (stock changes below trigger it sooner).
+    // Each check downloads the product list, so it must not run constantly.
     const interval = setInterval(() => {
       void checkStockLevels()
-    }, 15000)
+    }, 5 * 60 * 1000)
 
     if (!isSupabaseConfigured) {
       return () => clearInterval(interval)
     }
 
-    // Realtime channel to immediately trigger alarm on stock updates across both Admin and Staff panels
+    // Stock changes re-check soon, but one sale updates several products:
+    // wait until they settle and check once. Only this shop's changes count.
+    let pending: ReturnType<typeof setTimeout> | null = null
+    const recheckSoon = () => {
+      if (pending) clearTimeout(pending)
+      pending = setTimeout(() => { pending = null; void checkStockLevels(true) }, 4000)
+    }
+    const branchFilter = branch ? { filter: `branch=eq.${branch}` } : {}
     const realtimeChannel = supabase
       .channel('low-stock-realtime-monitor')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
-        void checkStockLevels(true)
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'product_variants' }, () => {
-        void checkStockLevels(true)
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products', ...branchFilter }, recheckSoon)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'product_variants', ...branchFilter }, recheckSoon)
       .subscribe()
 
     return () => {
+      if (pending) clearTimeout(pending)
       clearInterval(interval)
       void supabase.removeChannel(realtimeChannel)
     }

@@ -152,14 +152,18 @@ function AppShell() {
       return
     }
 
+    // A sale updates several products at once: refresh the list once, a moment later
+    let pending: ReturnType<typeof setTimeout> | null = null
     const productChannel = supabase
       .channel('admin-products-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
-        void refreshProducts()
+        if (pending) clearTimeout(pending)
+        pending = setTimeout(() => { pending = null; void refreshProducts() }, 3000)
       })
       .subscribe()
 
     return () => {
+      if (pending) clearTimeout(pending)
       void supabase.removeChannel(productChannel)
     }
   }, [refreshProducts])

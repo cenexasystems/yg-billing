@@ -296,8 +296,15 @@ export default function Pos(props: PosProps = {}) {
     void fetchVariants(branch)
     if (!isSupabaseConfigured) return
 
+    // One sale updates several products: refresh the catalog once, a moment later,
+    // and only for this shop's products (each refresh downloads the whole list).
+    let productRefresh: ReturnType<typeof setTimeout> | null = null
+    const refreshSoon = () => {
+      if (productRefresh) clearTimeout(productRefresh)
+      productRefresh = setTimeout(() => { productRefresh = null; void fetchProducts(branch, true) }, 3000)
+    }
     const productChannel = supabase.channel('pos-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => void fetchProducts(branch, true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `branch=eq.${branch}` }, refreshSoon)
       .subscribe()
 
     // Load active categories in sort_order (this branch only)
@@ -306,7 +313,10 @@ export default function Pos(props: PosProps = {}) {
         if (data) setDbCategories(data.map(c => c.name_en as string))
       })
 
-    return () => { void supabase.removeChannel(productChannel) }
+    return () => {
+      if (productRefresh) clearTimeout(productRefresh)
+      void supabase.removeChannel(productChannel)
+    }
   }, [fetchProducts, fetchVariants, branch])
 
   // Active coupons for this branch. Re-fetched on focus and every minute so a
