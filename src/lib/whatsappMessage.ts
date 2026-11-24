@@ -48,7 +48,10 @@ export type AdvanceDepositWhatsAppInput = {
 }
 
 export const publicInvoiceUrl = (invoiceNumber: string) => {
-  const formatted = formatInvoiceNo(invoiceNumber)
+  // Links use the stored number (not the shown one), so a POS 3 bill shown as
+  // INV00000001 can't open the POS 2 bill that is really number 1.
+  const digits = String(invoiceNumber || '').trim().replace(/^INV/i, '')
+  const formatted = /^\d{8}$/.test(digits) ? `INV${digits}` : formatInvoiceNo(invoiceNumber)
   const envUrl = (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, '')
   const origin =
     envUrl ||

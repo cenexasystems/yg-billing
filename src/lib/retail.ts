@@ -83,11 +83,19 @@ export const safeId = (id: unknown): number | null => {
 export const isUuid = (value: unknown): value is string =>
   typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
 
+/** POS 3 invoice numbers are stored from 60000001 so they never clash with POS 1 or POS 2 */
+export const POS3_INVOICE_BASE = 60000000
+
 export const formatInvoiceNo = (invNo: unknown): string => {
   const raw = String(invNo || '').trim()
   const base = raw.replace(/^INV/i, '')
   if (!base) return 'INV10000001'
-  if (/^\d{8}$/.test(base)) return `INV${base}`
+  if (/^\d{8}$/.test(base)) {
+    // Christmas POS (POS 3) bills are stored as 60000001, 60000002, ... and shown as 1, 2, ...
+    const n = Number(base)
+    if (n > POS3_INVOICE_BASE && n < POS3_INVOICE_BASE + 10000000) return `INV${String(n - POS3_INVOICE_BASE).padStart(8, '0')}`
+    return `INV${base}`
+  }
 
   const matchDigits = base.match(/\d+/g)
   if (matchDigits) {
