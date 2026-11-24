@@ -35,16 +35,16 @@ BEGIN
 
   -- Step 1: move changing bills to temporary numbers so no two bills ever share one.
   UPDATE public.orders o
-  SET invoice_no = 'TMP' || r.id::TEXT
-  FROM _pos3_renumber r
-  WHERE o.id = r.id AND r.old_no <> r.new_no;
+  SET invoice_no = 'TMP' || t.id::TEXT
+  FROM _pos3_renumber t
+  WHERE o.id = t.id AND t.old_no <> t.new_no;
 
   -- Step 2: give them their final numbers.
   UPDATE public.orders o
-  SET invoice_no = r.new_no,
+  SET invoice_no = t.new_no,
       invoice_pdf_url = NULL
-  FROM _pos3_renumber r
-  WHERE o.id = r.id AND r.old_no <> r.new_no;
+  FROM _pos3_renumber t
+  WHERE o.id = t.id AND t.old_no <> t.new_no;
 
   -- Stock history and advance orders refer to bills by invoice number.
   FOR r IN SELECT old_no, new_no FROM _pos3_renumber WHERE old_no <> new_no LOOP
