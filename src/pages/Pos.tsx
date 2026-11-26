@@ -1866,8 +1866,9 @@ export default function Pos(props: PosProps = {}) {
         </div>
 
         {/* RIGHT COLUMN (approx 32%) */}
-        <div className="flex-[1] flex min-h-0 flex-col gap-6 lg:sticky lg:top-4 lg:h-[calc(100vh-140px)] lg:max-h-[calc(100vh-140px)]">
-          <div className="flex min-h-0 lg:h-full lg:max-h-full flex-col lg:overflow-hidden rounded-2xl border border-gray-200 bg-[#FBFAF6] shadow-sm">
+        {/* Without deposit orders (Christmas) the panel is only as tall as its content, so no empty gap above the button */}
+        <div className={`flex-[1] flex min-h-0 flex-col gap-6 lg:sticky lg:top-4 lg:max-h-[calc(100vh-140px)] ${advanceEnabled ? 'lg:h-[calc(100vh-140px)]' : 'lg:self-start'}`}>
+          <div className={`flex min-h-0 lg:max-h-full flex-col lg:overflow-hidden rounded-2xl border border-gray-200 bg-[#FBFAF6] shadow-sm ${advanceEnabled ? 'lg:h-full' : ''}`}>
 
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-white shrink-0">
@@ -2190,7 +2191,7 @@ export default function Pos(props: PosProps = {}) {
                   {saving ? 'Processing...' : 'Complete Sale'}
                 </button>
               </div>
-              <p className="mt-2 text-center text-[10px] font-bold text-[#6B7280]">Enter deposit and delivery details in the next step. Deposits do not count as revenue until full payment is received.</p>
+              {advanceEnabled && <p className="mt-2 text-center text-[10px] font-bold text-[#6B7280]">Enter deposit and delivery details in the next step. Deposits do not count as revenue until full payment is received.</p>}
             </div>
           </div>
         </div>
