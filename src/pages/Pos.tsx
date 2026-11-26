@@ -165,6 +165,8 @@ export default function Pos(props: PosProps = {}) {
   // The Christmas POS (POS 3) has no Coupons and no Advance Orders
   const couponsEnabled = branchHasCoupons(branch)
   const advanceEnabled = branchHasAdvanceOrders(branch)
+  // Christmas (no deposit orders): the order summary's item list fills the panel's spare height
+  const fillItems = !advanceEnabled
   // POS 2 (Fireworks) takes mostly card payments, so card comes first there.
   const paymentModes = usesFireworksLayout(branch) ? (['card', 'cash', 'qr', 'split'] as const) : (['cash', 'qr', 'card', 'split'] as const)
   const defaultPaymentType = paymentModes[0]
@@ -1866,9 +1868,8 @@ export default function Pos(props: PosProps = {}) {
         </div>
 
         {/* RIGHT COLUMN (approx 32%) */}
-        {/* Without deposit orders (Christmas) the panel is only as tall as its content, so no empty gap above the button */}
-        <div className={`flex-[1] flex min-h-0 flex-col gap-6 lg:sticky lg:top-4 lg:max-h-[calc(100vh-140px)] ${advanceEnabled ? 'lg:h-[calc(100vh-140px)]' : 'lg:self-start'}`}>
-          <div className={`flex min-h-0 lg:max-h-full flex-col lg:overflow-hidden rounded-2xl border border-gray-200 bg-[#FBFAF6] shadow-sm ${advanceEnabled ? 'lg:h-full' : ''}`}>
+        <div className="flex-[1] flex min-h-0 flex-col gap-6 lg:sticky lg:top-4 lg:h-[calc(100vh-140px)] lg:max-h-[calc(100vh-140px)]">
+          <div className="flex min-h-0 lg:h-full lg:max-h-full flex-col lg:overflow-hidden rounded-2xl border border-gray-200 bg-[#FBFAF6] shadow-sm">
 
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-white shrink-0">
@@ -1879,10 +1880,10 @@ export default function Pos(props: PosProps = {}) {
             </div>
 
             {/* Content body */}
-            <div className="min-h-0 flex-1 lg:overflow-y-auto bg-white p-3 space-y-2">
+            <div className={`min-h-0 flex-1 lg:overflow-y-auto bg-white p-3 space-y-2 ${fillItems ? 'flex flex-col' : ''}`}>
 
               {/* Info Table */}
-              <div className="border border-gray-200 rounded-xl overflow-hidden text-[11px] font-bold">
+              <div className={`border border-gray-200 rounded-xl overflow-hidden text-[11px] font-bold ${fillItems ? 'flex flex-col flex-1 min-h-[140px]' : ''}`}>
                 <div className="grid grid-cols-2 gap-0 border-b border-gray-200">
                   <div className="p-2 border-r border-gray-200">
                     <span className="text-[10px] text-[#374151] uppercase block mb-0.5">Customer Name</span>
@@ -1906,8 +1907,9 @@ export default function Pos(props: PosProps = {}) {
                     />
                   </div>
                 </div>
-{items.length > 0 && (
-                  <div className="px-3 py-2 bg-[#FAFAFA] space-y-1 border-b border-gray-200 max-h-[80px] overflow-y-auto">
+{(items.length > 0 || fillItems) && (
+                  <div className={`px-3 py-2 bg-[#FAFAFA] space-y-1 ${fillItems ? 'flex-1 min-h-0 overflow-y-auto' : 'border-b border-gray-200 max-h-[80px] overflow-y-auto'}`}>
+                    {items.length === 0 && <p className="text-[11px] font-semibold text-gray-400">No items yet</p>}
                     {items.map(item => (
                 <div key={item.id} className="flex justify-between text-[#111111] text-[11px]">
                         <span className="truncate pr-2">{item.qty}x {item.name}</span>
